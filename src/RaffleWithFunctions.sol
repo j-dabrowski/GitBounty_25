@@ -25,8 +25,8 @@
 pragma solidity 0.8.19;
 
 import {Raffle} from "./Raffle.sol";
-import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_X/FunctionsClient.sol";
-import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
+import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 
 /**
  * @title RaffleWithFunctions
