@@ -1,0 +1,281 @@
+:root {
+    --kde-bg: #c0c0c0;
+    --kde-panel: #dcdad5;
+    --kde-border: #888888;
+    --kde-highlight: #ffffff;
+    --kde-shadow: #444444;
+    --kde-yellow: #f4f1c9;
+    --kde-blue-bg: #0033aa;
+    --kde-blue-text: #7cb7ff;
+    --kde-frame-bg: #c6c297;         /* pale yellowish-olive */
+    --kde-frame-border-light: #f0f0e0;
+    --kde-frame-border-dark: #6e6a49;
+    --kde-frame-border-black: #161616;
+    --kde-teal-bg: #9DBEBE;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+#app {
+    height: auto; /* Fill the entire viewport height */
+    width: 600px;
+    margin: 80px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+#app {
+    box-shadow: 4px 4px 6px rgba(0, 0, 0, 0.25);
+  }
+
+#app-header {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+#app-background {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 30px; /* Optional: create breathing room inside the border */
+    box-sizing: border-box;
+  }
+
+/* KDE Theme */
+#app-background {
+    background-color: var(--kde-teal-bg);
+    border: 1px solid var(--kde-frame-border-black);
+}
+
+body.kde-pattern {
+    background:
+    /* Diamonds */
+    linear-gradient(45deg, #00000005 25%, transparent 25%) 0 0 / 60px 60px repeat,
+    linear-gradient(-45deg, #00000005 25%, transparent 25%) 0 0 / 60px 60px repeat,
+    /* Offset rings */
+    radial-gradient(circle at 50% 50%, #00000003 20%, transparent 21%) 30px 30px / 60px 60px repeat,
+    /* Blue gradient base */
+    linear-gradient(135deg, #4e81b3 0%, #5c8cc2 70%, #4877a1 100%);
+}
+
+.corner {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    z-index: 3;
+  }
+.corner.top-left     { top: 0; left: 0; }
+.corner.top-right    { top: 0; right: 0; }
+.corner.bottom-left  { bottom: 0; left: 0; }
+.corner.bottom-right { bottom: 0; right: 0; }
+
+  .corner.kde.top-left {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 h4 v1 h-3 v3 h-1z' fill='%23ffffff'/><rect x='3' y='3' width='1' height='1' fill='%23222'/></svg>");
+  }
+  .corner.kde.top-right {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 h4 v1 h-4 z' fill='%23ffffff'/><path d='M3,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='0' y='3' width='1' height='1' fill='%23222'/></svg>");
+  }
+  .corner.kde.bottom-left {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='3' y='0' width='1' height='1' fill='%23222'/><rect x='0' y='3' width='4' height='1' fill='%23ffffff'/></svg>");
+  }
+  .corner.kde.bottom-right {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M3,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='0' y='3' width='4' height='1' fill='%23ffffff'/><rect x='0' y='0' width='1' height='1' fill='%23222'/></svg>");
+  }
+
+/* Border Lips */
+
+  .lip {
+    flex-shrink: 0;
+    position: relative;
+    background: #ccc; /* fallback */
+    z-index: 1;
+  }
+  
+  /* Top and Bottom Lips */
+  .lip.top,
+  .lip.bottom {
+    height: 4px;
+    width: 100%;
+    position: relative;
+    z-index: 0; /* behind side lips */
+  }
+  
+  .lip.top {
+    margin-bottom: -1px; /* pull up under left/right lips */
+    background: linear-gradient(to bottom, #ffffff, #c7c7c7 50%, #161616);
+    box-shadow:
+      inset 0 1px 0 #ffffff,
+      inset 0 -1px 0 #888888;
+  }
+  
+  .lip.bottom {
+    margin-top: -1px; /* pull up under left/right lips */
+    background: linear-gradient(to top, #ffffff, #c7c7c7 50%, #161616);
+    box-shadow:
+      inset 0 -1px 0 #ffffff,
+      inset 0 1px 0 #888888;
+  }
+  
+  /* Left and Right Lips */
+  .lip.left,
+  .lip.right {
+    width: 4px;
+    height: auto;
+    z-index: 2; /* above top/bottom */
+  }
+  
+  .lip.left {
+    margin-right: -1px; /* overlap slightly into title-inner */
+    background: linear-gradient(to right, #ffffff, #c7c7c7 50%, #161616);
+    box-shadow:
+      inset 1px 0 0 #ffffff,
+      inset -1px 0 0 #222;
+  }
+  
+  .lip.right {
+    margin-left: 0px;
+    background: linear-gradient(to left, #ffffff, #c7c7c7 50%, #161616);
+    box-shadow:
+      inset -1px 0 0 #ffffff,
+      inset 1px 0 0 #222;
+  }
+
+
+.title-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border: 1px solid #222;
+}
+.title-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    position: relative;
+    z-index: 2; /* above top/bottom lips */
+}
+  
+.title-content {
+    display: flex;
+    justify-content: space-between;  /* 👈 pushes title left and button right */
+    align-items: center;
+    padding: 6px 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+  
+.title-text {
+    font-style: italic;
+    font-weight: bold;
+    font-family: sans-serif;
+}
+
+.title-inner {
+    flex: 1;
+    border: 1px solid #222;
+    background: linear-gradient(to bottom, #ffffff, #dcdcdc 50%, #888888);
+    padding: 0;
+}
+
+.main-inner {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 20px;
+}
+
+.main-inner.kde {
+    font-weight: bold;
+    font-style: italic;
+    font-family: sans-serif;
+    background: linear-gradient(to bottom, #ffffff, #dcdcdc 50%, #888888);
+    color: #000;
+    border: 1px solid #222;
+    box-shadow:
+      inset 1px 1px 0 #ffffff,
+      inset -1px -1px 0 #444,
+      -1px -1px 0 #222,
+      1px 1px 0 #eeeeee;
+}
+
+  .button {
+    min-width: 100px;
+    padding: 4px 10px;
+    box-shadow:
+      -1px -1px 0 0 #fefefe,      /* top-left highlight */
+       1px  1px 0 0 #666666,      /* bottom-right shadow */
+       inset 0 0 0 0 #000000;     /* no inset by default */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }  
+  
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* ✨ vertical center if parent allows */
+    gap: 16px; /* better than using margin */
+    height: 100%; /* required if you want full vertical center */
+  }
+
+  .button.kde {
+    background: linear-gradient(to bottom, #e8e8e8 0%, #d0d0d0 95%);
+    color: #111;
+    font-family: sans-serif;
+    font-weight: bold;
+    border: 1px solid #444; /* strong outer border */
+    outline: 1px solid #fff; /* inner light outline for subtle pop */
+  }
+  
+  .button.kde:active {
+    box-shadow: 
+      inset -1px -1px 0 #fff,
+      inset 1px 1px 0 #444;
+  }
+  
+  .button.kde.pressed {
+    box-shadow: 
+      inset 1px 1px 0 #888, 
+      inset -1px -1px 0 #fff;
+  }
+
+  .button.kde:hover:not(.pressed) {
+    background: linear-gradient(to bottom, #ffffff, #e0e0e0 80%, #c0c0c0);
+  }
+
+  .button.kde:disabled:hover:not(.pressed) {
+    background: linear-gradient(to bottom, #e0e0e0, #c8c8c8 80%, #b0b0b0);
+    box-shadow: none;
+    cursor: default;
+  }
+
+  button:disabled,
+.button.kde:disabled {
+  background: linear-gradient(to bottom, #e0e0e0, #c8c8c8 80%, #b0b0b0);
+  color: #666;
+  border: 1px solid #aaa;
+  box-shadow: none;
+  opacity: 0.7;
+  cursor: default;
+  text-shadow: 0 1px 0 #fff;
+}
+
+.input {
+    max-width: 90px;
+    width: 100%;
+}
