@@ -1,0 +1,15 @@
+[submodule "lib/foundry-devops"]
+	path = lib/foundry-devops
+	url = https://github.com/cyfrin/foundry-devops
+[submodule "lib/chainlink-brownie-contracts"]
+	path = lib/chainlink-brownie-contracts
+	url = https://github.com/smartcontractkit/chainlink-brownie-contracts
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/transmissions11/solmate
+[submodule "lib/chainlink"]
+	path = lib/chainlink
+	url = https://github.com/smartcontractkit/chainlink
