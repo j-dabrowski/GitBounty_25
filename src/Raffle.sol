@@ -142,7 +142,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit RequestedRaffleWinner(requestId);
     }
 
-    function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal override {
+function fulfillRandomWords(
+    uint256 /* requestId */, 
+    uint256[] calldata randomWords
+) internal override(VRFConsumerBaseV2Plus) {
         // CEI: Checks, Effects, Interactions Pattern - helps prevent re-entrancy attacks.
         
         // Effects (Internal Contract State)

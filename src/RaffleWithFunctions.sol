@@ -20,82 +20,145 @@
 // view & pure functions
 
 // SPDX-License-Identifier: MIT
-
-// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import {Raffle} from "./Raffle.sol";
 import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
+import {ConfirmedOwner} from "@chainlink/v1/../../../shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
+
 
 /**
  * @title RaffleWithFunctions
  * @notice Extends the Raffle contract to include Chainlink Functions for external approval before winner selection.
  */
-contract RaffleWithFunctions is Raffle, FunctionsClient {
+contract RaffleWithFunctions is FunctionsClient, Raffle {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    // --- State ---
-    string public s_latestResult;
-    bytes public s_latestResponse;
-    bytes public s_latestError;
-    bool public s_externalApproval;
-    address private immutable i_functionsOracle;
-    bytes32 private immutable i_donID;
+    // State variables to store the last request ID, response, and error
+    bytes32 public s_lastRequestId;
+    bytes public s_lastResponse;
+    bytes public s_lastError;
 
-    // --- Events ---
-    event ChainlinkFunctionsRequestSent(bytes32 indexed requestId);
-    event ChainlinkFunctionsResponse(bytes result, bytes err);
+    // Custom error type
+    error UnexpectedRequestID(bytes32 requestId);
 
+    // Event to log responses
+    event Response(
+        bytes32 indexed requestId,
+        string character,
+        bytes response,
+        bytes err
+    );
+
+    address router;
+    bytes32 donID;
+
+    // JavaScript source code hardcoded
+    // Fetch character name from the Star Wars API.
+    // Documentation: https://swapi.info/people
+    string source =
+        "const characterId = args[0];"
+        "const apiResponse = await Functions.makeHttpRequest({"
+        "url: `https://swapi.info/api/people/${characterId}/`"
+        "});"
+        "if (apiResponse.error) {"
+        "throw Error('Request failed');"
+        "}"
+        "const { data } = apiResponse;"
+        "return Functions.encodeString(data.name);";
+
+    //Callback gas limit
+    uint32 gasLimit = 300000;
+    // State variable to store the returned character information
+    string public character;
+
+    /**
+     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
+     */
     constructor(
-        address functionsOracle,
-        bytes32 donID,
-        uint256 entranceFee,
-        uint256 interval,
-        address vrfCoordinator,
-        bytes32 gasLane,
-        uint256 subscriptionId,
-        uint32 callbackGasLimit
+        uint256 _entranceFee,
+        uint256 _interval,
+        address _vrfCoordinator,
+        bytes32 _gasLane,
+        uint256 _subscriptionId,
+        uint32 _callbackGasLimit,
+        address _functionsOracle,
+        bytes32 _donID
     )
-        Raffle(entranceFee, interval, vrfCoordinator, gasLane, subscriptionId, callbackGasLimit)
-        FunctionsClient(functionsOracle)
+        Raffle(_entranceFee, _interval, _vrfCoordinator, _gasLane, _subscriptionId, _callbackGasLimit)
+        FunctionsClient(_functionsOracle)
     {
-        i_functionsOracle = functionsOracle;
-        i_donID = donID;
+        router = _functionsOracle;
+        donID = _donID;
     }
 
-    // --- Chainlink Functions Request Trigger ---
-    function requestExternalApproval(string calldata source, string[] calldata args) external {
+    /**
+     * @notice Sends an HTTP request for character information
+     * @param subscriptionId The ID for the Chainlink subscription
+     * @param args The arguments to pass to the HTTP request
+     * @return requestId The ID of the request
+     */
+    function sendRequest(
+        uint64 subscriptionId,
+        string[] calldata args
+    ) external onlyOwner returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
-        req.initializeRequestForInlineJavaScript(source);
+        req._initializeRequestForInlineJavaScript(source);
         if (args.length > 0) {
-            req.setArgs(args);
+            req._setArgs(args);
         }
-        bytes32 assignedReqID = _sendRequest(
-            req.encodeCBOR(),
-            i_donID,
-            200_000, // gas limit for fulfillment
-            0         // no upfront payment
+
+        s_lastRequestId = _sendRequest(
+            req._encodeCBOR(),
+            subscriptionId,
+            gasLimit,
+            donID
         );
-        emit ChainlinkFunctionsRequestSent(assignedReqID);
+
+        return s_lastRequestId;
     }
 
-    // --- Chainlink Functions Fulfillment ---
-    function fulfillRequest(
-        bytes32, /* requestId */
+    function _fulfillRequest(
+        bytes32 requestId,
         bytes memory response,
         bytes memory err
     ) internal override {
-        s_latestResponse = response;
-        s_latestError = err;
-        s_latestResult = string(response);
-        s_externalApproval = keccak256(response) == keccak256(abi.encodePacked("true"));
-        emit ChainlinkFunctionsResponse(response, err);
+        fulfillRequest(requestId, response, err);
     }
 
-    // --- Override winner logic to depend on approval ---
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override(Raffle) {
-        require(s_externalApproval, "External approval required");
-        super.fulfillRandomWords(requestId, randomWords);
+    /**
+     * @notice Callback function for fulfilling a request
+     * @param requestId The ID of the request to fulfill
+     * @param response The HTTP response data
+     * @param err Any errors from the Functions request
+     */
+    function fulfillRequest(
+        bytes32 requestId,
+        bytes memory response,
+        bytes memory err
+    ) internal {
+        if (s_lastRequestId != requestId) {
+            revert UnexpectedRequestID(requestId); // Check if request IDs match
+        }
+        // Update the contract's state variables with the response and any errors
+        s_lastResponse = response;
+        character = string(response);
+        s_lastError = err;
+
+        // Emit an event to log the response
+        emit Response(requestId, character, s_lastResponse, s_lastError);
     }
+    
+    function getLastResponse() external view returns(bytes memory lastResponse) {
+        return s_lastResponse;
+    }
+
+    /*function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomWords
+    ) internal override {
+        super.fulfillRandomWords(requestId, randomWords);
+    }*/
+
 }
