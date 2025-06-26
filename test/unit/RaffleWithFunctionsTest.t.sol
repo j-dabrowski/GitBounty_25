@@ -4,9 +4,7 @@ pragma solidity ^0.8.19;
 import {Test} from "forge-std/Test.sol";
 import {DeployRaffleWithFunctions} from "script/DeployRaffleWithFunctions.s.sol";
 import {RaffleWithFunctions} from "../../src/RaffleWithFunctions.sol";
-import {Raffle} from "src/Raffle.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 import {MockFunctionsOracle} from "../mocks/MockFunctionsOracle.sol";
 import {CodeConstants, HelperConfig} from "script/HelperConfig.s.sol";
 
@@ -15,12 +13,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     HelperConfig public helperConfig;
     MockFunctionsOracle public mockRouter;
 
-    uint256 entranceFee;
     uint256 interval;
-    address vrfCoordinator;
-    bytes32 gasLane;
-    uint32 callbackGasLimit;
-    uint256 subscriptionId;
     uint256 functionsSubscriptionId;
     address account;
     address functionsOracle;
@@ -29,19 +22,13 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_PLAYER_BALANCE = 10 ether;
 
-    event RaffleEntered(address indexed player);
-    event WinnerPicked(address indexed winner);
+    event BountyFunded(address indexed sender, uint256 value);
 
     function setUp() public {
         DeployRaffleWithFunctions deployer = new DeployRaffleWithFunctions();
         (raffle, helperConfig) = deployer.deployContract();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
-        entranceFee = config.entranceFee;
         interval = config.interval;
-        vrfCoordinator = config.vrfCoordinator;
-        gasLane = config.gasLane;
-        callbackGasLimit = config.callbackGasLimit;
-        subscriptionId = config.subscriptionId;
         functionsSubscriptionId = config.functionsSubscriptionId;
         account = config.account;
         functionsOracle = config.functionsOracle;
@@ -57,12 +44,150 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         _;
     }
 
-// Functions tests
+    // Functions tests
 
     function testConstructorInitializesCorrectly() public {
         assertEq(raffle.s_lastRequestId(), bytes32(0));
-        assertEq(raffle.character(), "");
-        assertEq(raffle.getLastResponse().length, 0);
+        assertEq(raffle.s_lastResponse().length, 0);
+        assertEq(raffle.s_lastError().length, 0);
+    }
+
+    modifier multiFundedBounty() {
+        address funder1 = address(1);
+        address funder2 = address(2);
+        address funder3 = address(3);
+
+        vm.deal(funder1, 1 ether);
+        vm.deal(funder2, 1 ether);
+        vm.deal(funder3, 1 ether);
+        
+        vm.prank(funder1);
+        raffle.fundBounty{value: 0.1 ether}();
+        
+        vm.prank(funder2);
+        raffle.fundBounty{value: 0.1 ether}();
+        
+        vm.prank(funder3);
+        raffle.fundBounty{value: 0.1 ether}();
+
+        _;
+    }
+
+    modifier singleFundedBounty() {
+        address funder1 = address(1);
+        vm.deal(funder1, 1 ether);
+        vm.prank(funder1);
+        raffle.fundBounty{value: 0.1 ether}();
+        _;
+    }
+
+    function testFundBountyIncreasesContributionsAndFunding() public singleFundedBounty {
+        address funder1 = address(1);
+        vm.prank(funder1);
+        uint256 amountFunded = raffle.getContribution();
+        assertEq(amountFunded, 0.1 ether);
+    }
+
+    function testWithdrawFundBountyDecreasesContributionsAndFunding() public multiFundedBounty {
+        // Get amount that will be withdrawn
+        address funder1 = address(1);
+        vm.prank(funder1);
+        uint256 amountToWithdraw = raffle.getContribution();
+
+        // Get balance of funder before withdraw
+        uint256 balanceBefore = funder1.balance;
+
+        // Withdraw
+        vm.prank(funder1);
+        raffle.withdrawBountyFund();
+
+        // Get balance of funder after withdraw
+        uint256 balanceAfter = funder1.balance;
+
+        assertEq(balanceAfter, balanceBefore + amountToWithdraw);
+    }
+
+    function testMapGithubUsernameToAddress() public {
+        string memory username = "contributor";
+        address contributor = address(4);
+
+        vm.prank(contributor);
+        raffle.mapGithubUsernameToAddress(username);
+
+        vm.expectRevert();
+        vm.prank(contributor);
+        raffle.mapGithubUsernameToAddress(username);
+
+        vm.prank(contributor);
+        address extractedAddress = raffle.getAddressFromUsername(username);
+
+        assertEq(extractedAddress, contributor);
+    }
+
+    modifier usernameAndAddressMapped() {
+        string memory username = "contributor";
+        address contributor = address(4);
+
+        vm.prank(contributor);
+        raffle.mapGithubUsernameToAddress(username);
+        _;
+    }
+
+    function testCreateAndFundBountySetsCriteriaAndRecordsContribution() public {
+        string memory ownerName = "j-dabrowski";
+        string memory repoName = "Test_Repo_2025";
+        string memory issueId = "1";
+
+        uint256 fundAmount = 0.2 ether;
+
+        // Expect event BEFORE the function that emits it
+        vm.expectEmit(true, true, false, false);
+        emit BountyFunded(account, fundAmount);
+
+        // Assign ETH to owner and call as owner
+        vm.deal(account, 1 ether);
+        vm.prank(account);
+        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+
+        // Check funding recorded
+        vm.prank(account);
+        uint256 contribution = raffle.getContribution();
+        assertEq(contribution, fundAmount, "Contribution not recorded correctly");
+
+        // Check criteria (requires you to add getters)
+        assertEq(raffle.getRepoOwner(), ownerName);
+        assertEq(raffle.getRepo(), repoName);
+        assertEq(raffle.getIssueNumber(), issueId);
+    }
+
+    modifier createAndFundBounty() {
+        string memory ownerName = "j-dabrowski";
+        string memory repoName = "Test_Repo_2025";
+        string memory issueId = "1";
+
+        uint256 fundAmount = 0.2 ether;
+        // Assign ETH to owner and call as owner
+        vm.deal(account, 1 ether);
+        vm.prank(account);
+        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+        _;
+    }
+
+    function testCheckUpkeepReturnsTrueWithConditions() public createAndFundBounty {
+        // Skip time forward
+        vm.warp(block.timestamp + interval + 1);
+
+        // Map a username and address
+        vm.prank(account);
+        raffle.mapGithubUsernameToAddress("example_username");
+
+        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        assertTrue(upkeepNeeded);
+    }
+
+    function testPerformUpkeepRevertsIfNotNeeded() public {
+        vm.expectRevert();
+        raffle.performUpkeep("");
     }
 
     function testSendRequestStoresRequestId() public {
@@ -76,25 +201,48 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     }
 
     function testCanRequestAndFulfill() public skipFork {
-        // Arrange
-        string[] memory args = new string[](1);
-        args[0] = "true";
+        // === Setup Mapping ===
+        string memory username = "contributor";
+        address contributor = vm.addr(999999);
+        vm.deal(contributor, 1 ether);
+        vm.prank(contributor);
+        raffle.mapGithubUsernameToAddress(username);
 
-        vm.prank(account); // Optional if msg.sender must be custom
+        // === Fund the Bounty ===
+        string memory ownerName = "j-dabrowski";
+        string memory repoName = "Test_Repo_2025";
+        string memory issueId = "1";
+
+        uint256 fundAmount = 0.2 ether;
+        vm.deal(account, 1 ether);
+        vm.prank(account);
+        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+
+        // === Send Chainlink Functions Request ===
+        string[] memory args = new string[](1);
+        args[0] = username;
+
+        vm.prank(account); // assuming account is onlyOwner
         bytes32 requestId = raffle.sendRequest(
             uint64(functionsSubscriptionId),
             args
         );
 
-        // Simulate DON fulfillment
-        bytes memory response = abi.encode("true");
+        uint256 balanceBefore = contributor.balance;
+
+        // === Simulate Fulfillment ===
+        bytes memory response = bytes(username); // raw string
         bytes memory error = "";
 
         mockRouter.fulfillRequest(requestId, response, error);
 
-        // Optionally assert state change in raffle
-        string memory decoded = abi.decode(raffle.getLastResponse(), (string));
-        assertEq(decoded, "true");
+        uint256 balanceAfter = contributor.balance;
+        assertEq(balanceAfter, balanceBefore + fundAmount);
+
+        // === Assertions ===
+        string memory decoded = string(raffle.getLastResponse());
+        assertEq(decoded, username);
     }
+
 
 }

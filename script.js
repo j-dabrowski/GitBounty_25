@@ -1,6 +1,6 @@
-const owner = "j-dabrowski";
-const repo = "Test_Repo_2025";
-const issueNumber = 1;
+const owner = args[0];
+const repo = args[1];
+const issueNumber = args[2];
 
 const url = "https://api.github.com/repos/" + owner + "/" + repo + "/issues/" + issueNumber;
 

@@ -30,12 +30,7 @@ contract DeployRaffleWithFunctions is Script {
 
         vm.startBroadcast(config.account);
         RaffleWithFunctions raffle = new RaffleWithFunctions(
-            config.entranceFee,
             config.interval,
-            config.vrfCoordinator,
-            config.gasLane,
-            config.subscriptionId,
-            config.callbackGasLimit,
             config.functionsOracle,
             config.donID
         );

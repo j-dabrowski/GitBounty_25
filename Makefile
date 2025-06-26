@@ -78,6 +78,14 @@ sendRequestScript:
 		--private-key $(PRIVATE_KEY) \
 		--gas-limit 1000000
 
+sendRequestScriptAndArgs:
+	@cast send 0x185471a23eEaE802fc8286752B2899163534e6F6 \
+		"sendRequestWithSource(uint64,string,string[])" \
+		5133 "$$(cat script.js)" '["j-dabrowski", "Test_Repo_2025", "1"]' \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--private-key $(PRIVATE_KEY) \
+		--gas-limit 1000000
+
 createSubscription:
 	@forge script script/Interactions.s.sol:CreateSubscription $(NETWORK_ARGS)
 
