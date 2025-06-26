@@ -28,6 +28,7 @@ contract HelperConfig is CodeConstants, Script {
         bytes32 gasLane;
         uint32 callbackGasLimit;
         uint256 subscriptionId;
+        uint256 functionsSubscriptionId;
         address link;
         address account;
         address functionsOracle;
@@ -64,6 +65,7 @@ contract HelperConfig is CodeConstants, Script {
             gasLane: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae,
             callbackGasLimit: 500000,
             subscriptionId: 5678636918962447571903646274118619275519362353888589824932531789175201713390,
+            functionsSubscriptionId: 5133,
             link: 0x6641415a61bCe80D97a715054d1334360Ab833Eb,
             account: 0x030C29e1B5D2A2Faf23A4ec51D0351B4e7431293, // burner account address on eth-sepolia (with testnet funds)
             functionsOracle: 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0, // real oracle,
@@ -98,6 +100,7 @@ contract HelperConfig is CodeConstants, Script {
             gasLane: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae, // doesn't matter
             callbackGasLimit: 500000,
             subscriptionId: 0, // might have to fix this
+            functionsSubscriptionId: 0,
             link: address(linkToken),
             account: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38, // Foundry default address for tx.origin and msg.sender
             functionsOracle: address(mockOracle), // address of deployed mock Functions Oracle

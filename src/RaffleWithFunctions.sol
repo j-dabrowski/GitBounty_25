@@ -24,7 +24,7 @@ pragma solidity 0.8.19;
 
 import {Raffle} from "./Raffle.sol";
 import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
-import {ConfirmedOwner} from "@chainlink/v1/../../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 
 
@@ -58,15 +58,16 @@ contract RaffleWithFunctions is FunctionsClient, Raffle {
     // Fetch character name from the Star Wars API.
     // Documentation: https://swapi.info/people
     string source =
-        "const characterId = args[0];"
-        "const apiResponse = await Functions.makeHttpRequest({"
-        "url: `https://swapi.info/api/people/${characterId}/`"
+        "try {"
+        "await Functions.makeHttpRequest({"
+        "url: \"https://example.com/invalid-or-unreliable-url\""
         "});"
-        "if (apiResponse.error) {"
-        "throw Error('Request failed');"
+        "} catch (e) {"
+        "// Swallow all errors"
         "}"
-        "const { data } = apiResponse;"
-        "return Functions.encodeString(data.name);";
+
+        "// Always return true"
+        "return Functions.encodeString(true);";
 
     //Callback gas limit
     uint32 gasLimit = 300000;
@@ -105,6 +106,27 @@ contract RaffleWithFunctions is FunctionsClient, Raffle {
     ) external onlyOwner returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
         req._initializeRequestForInlineJavaScript(source);
+        if (args.length > 0) {
+            req._setArgs(args);
+        }
+
+        s_lastRequestId = _sendRequest(
+            req._encodeCBOR(),
+            subscriptionId,
+            gasLimit,
+            donID
+        );
+
+        return s_lastRequestId;
+    }
+
+    function sendRequestWithSource(
+        uint64 subscriptionId,
+        string calldata sentSource,
+        string[] calldata args
+    ) external onlyOwner returns (bytes32 requestId) {
+        FunctionsRequest.Request memory req;
+        req._initializeRequestForInlineJavaScript(sentSource);
         if (args.length > 0) {
             req._setArgs(args);
         }
