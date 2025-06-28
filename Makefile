@@ -79,9 +79,9 @@ sendRequestScript:
 		--gas-limit 1000000
 
 sendRequestScriptAndArgs:
-	@cast send 0x185471a23eEaE802fc8286752B2899163534e6F6 \
+	@cast send 0x7595676D36503B56E814AFeffA221Cb69272814e \
 		"sendRequestWithSource(uint64,string,string[])" \
-		5133 "$$(cat script.js)" '["j-dabrowski", "Test_Repo_2025", "1"]' \
+		5133 "$$(cat script.js)" '["j-dabrowski", "Test_Repo_2025", "2"]' \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--private-key $(PRIVATE_KEY) \
 		--gas-limit 1000000

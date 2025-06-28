@@ -28,7 +28,7 @@ contract HelperConfig is CodeConstants, Script {
         bytes32 gasLane;
         uint32 callbackGasLimit;
         uint256 subscriptionId;
-        uint256 functionsSubscriptionId;
+        uint64 functionsSubscriptionId;
         address link;
         address account;
         address functionsOracle;

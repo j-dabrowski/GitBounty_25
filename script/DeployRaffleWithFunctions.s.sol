@@ -32,7 +32,8 @@ contract DeployRaffleWithFunctions is Script {
         RaffleWithFunctions raffle = new RaffleWithFunctions(
             config.interval,
             config.functionsOracle,
-            config.donID
+            config.donID,
+            config.functionsSubscriptionId
         );
         vm.stopBroadcast();
 

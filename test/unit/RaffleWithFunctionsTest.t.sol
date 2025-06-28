@@ -14,7 +14,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     MockFunctionsOracle public mockRouter;
 
     uint256 interval;
-    uint256 functionsSubscriptionId;
+    uint64 functionsSubscriptionId;
     address account;
     address functionsOracle;
     bytes32 donID;
@@ -50,6 +50,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         assertEq(raffle.s_lastRequestId(), bytes32(0));
         assertEq(raffle.s_lastResponse().length, 0);
         assertEq(raffle.s_lastError().length, 0);
+        assertEq(raffle.functionsSubId(), functionsSubscriptionId);
     }
 
     modifier multiFundedBounty() {
@@ -242,6 +243,25 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // === Assertions ===
         string memory decoded = string(raffle.getLastResponse());
         assertEq(decoded, username);
+    }
+
+    function testPerformUpkeepTriggersFunctionsRequest() public createAndFundBounty usernameAndAddressMapped {
+        // Simulate time passing to make upkeep needed
+        vm.warp(block.timestamp + interval + 1);
+
+        // Pre-check
+        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        assertTrue(upkeepNeeded);
+
+        // Act
+        vm.prank(account); // account must be onlyOwner
+        raffle.performUpkeep("");
+
+        // Assert state was updated
+        assertEq(uint256(raffle.getRaffleState()), uint256(RaffleWithFunctions.RaffleState.CALCULATING));
+
+        // Assert requestId is stored
+        assertTrue(raffle.s_lastRequestId() != bytes32(0));
     }
 
 

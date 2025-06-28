@@ -71,9 +71,10 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     // @dev duration of the interval in seconds
     uint256 private immutable i_interval;
     RaffleState private s_raffleState; // start as open
-    // Other - obsolete?
+    // Other
     address router;
     bytes32 donID;
+    uint64 public functionsSubId;
     // Callback gas limit
     uint32 gasLimit = 300000;
 
@@ -111,7 +112,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     constructor(
         uint256 _interval,
         address _functionsOracle,
-        bytes32 _donID
+        bytes32 _donID,
+        uint64 _functionsSubId
     )
         FunctionsClient(_functionsOracle)
         ConfirmedOwner(msg.sender)
@@ -121,6 +123,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         i_interval = _interval;
         router = _functionsOracle;
         donID = _donID;
+        functionsSubId = _functionsSubId;
     }
 
     function setBountyCriteria(
@@ -228,9 +231,24 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         }
         s_raffleState = RaffleState.CALCULATING;
         
+        // === Prepare Request Arguments ===
+        string[] memory args = new string[](3);
+        args[0] = repo_owner;
+        args[1] = repo;
+        args[2] = issueNumber;
 
+        FunctionsRequest.Request memory req;
+        req._initializeRequestForInlineJavaScript(source);
+        if (args.length > 0) {
+            req._setArgs(args);
+        }
 
-
+        s_lastRequestId = _sendRequest(
+            req._encodeCBOR(),
+            functionsSubId,
+            gasLimit,
+            donID
+        );
     }
 
     function _resetContributions() internal {
@@ -255,6 +273,14 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     function getContribution() external view returns (uint256) {
         return s_contributions[msg.sender];
     }
+
+    function getFunderCount() public view returns (uint256) {
+        return s_funderCount;
+    }
+
+    function getBalance() external view returns (uint256) {
+    return address(this).balance;
+}
 
     function getAddressFromUsername(string calldata username) external view returns (address) {
         return s_githubToAddress[username];
@@ -345,38 +371,51 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         s_lastResponse = response;
         s_lastError = err;
 
-        // Parse the response as a GitHub username
-        string memory winnerUsername = string(response);
-        address winner = s_githubToAddress[winnerUsername];
+        // Decode the response as a UTF-8 string
+        string memory result = string(response);
 
-        if (winner == address(0)) {
-            revert Raffle__NoAddressMappedToUsername(winnerUsername);
+        // Soft-fail if result is "not_found" or empty or error signal
+        if (
+            bytes(result).length == 0 ||
+            keccak256(bytes(result)) == keccak256("not_found")
+        ) {
+            // No state changes — soft fail
+            emit Response(requestId, response, err); // log anyway
+            return;
         }
 
-        // Payout logic
+        // Lookup the winner address
+        address winner = s_githubToAddress[result];
+
+        // Soft-fail if unmapped
+        if (winner == address(0)) {
+            emit Response(requestId, response, err); // log anyway
+            return;
+        }
+
+        // Payout
         uint256 amount = s_totalFunding;
-        // Clear contributions
         _resetContributions();
+
+        // Clear bounty criteria
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
+
+        // Reset state
+        s_raffleState = RaffleState.OPEN;
+
         // Send payout
         (bool success, ) = winner.call{value: amount}("");
         if (!success) revert Raffle__TransferFailed();
 
         s_lastWinner = winner;
-        emit BountyClaimed(winner, amount);
 
-        // Emit an event to log the response
-        emit Response(requestId, s_lastResponse, s_lastError);
+        emit BountyClaimed(winner, amount);
+        emit Response(requestId, response, err);
     }
     
     function getLastResponse() external view returns(bytes memory lastResponse) {
         return s_lastResponse;
     }
-
-    /*function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] calldata randomWords
-    ) internal override {
-        super.fulfillRandomWords(requestId, randomWords);
-    }*/
-
 }

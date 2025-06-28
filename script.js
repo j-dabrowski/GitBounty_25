@@ -12,6 +12,9 @@ if (response.error) {
 
 const issue = response.data;
 
+
+return Functions.encodeString("j-dabrowski");
+
 if (!issue || !issue.state) {
   return Functions.encodeString("not_found");
 }
