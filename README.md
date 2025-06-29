@@ -9,6 +9,8 @@ https://sepolia.etherscan.io/address/0x3bA67d986720Dd6fA69871e7113fbC595345B21c
 
 Run the frontend in this repo to interface with the contract and create bounties of your Github issues.
 
+---
+
 ## Usage
 
 General usage is as follows:
@@ -19,6 +21,8 @@ Then, given an existing Github repo, with open issues available, a user can crea
 Once a branched PR (linked to the bounty's issue) has been merged successfully into the main branch, the Bounty will automatically pay out to the author of the PR.
 
 ---
+
+## Project Background
 
 Open source collaboration is the backbone of modern software, but financial incentives are often misaligned or entirely absent. Maintainers struggle to get help on critical issues, contributors lack clear pathways to compensation, and sponsors have little transparency into what their funds achieve.
 
@@ -56,20 +60,20 @@ Sponsors and DAOs can fund public goods with greater assurance that funds are ti
 
 Whether you're a solo dev maintaining a side project, a DAO funding critical infrastructure, or a contributor seeking paid opportunities, **GitBounty** creates a new incentive structure that rewards open source work transparently and automatically.
 
----
+## What's next?
 
 Looking forward, each stage of the UBP could be augmented or fully automated by AI. From generating work proposals to writing code and verifying correctness, this could create a powerful new paradigm: a decentralised, competitive market of work for AI software developer agents.
 
 Bounty contracts could be ownable, tradable, and packaged into a new class of on-chain assets - earning fees for their holders and effectively financialising the online gig economy of software development.
 
----
+## Technical Challenges
 
-**Technical Challenges**
 One major limitation was the lack of secure secret management within Chainlink Automation. Chainlink Functions requires a GitHub token to query the API, but Automation can't store or inject secrets directly.
 
 To work around this, I embedded a read-only GitHub token with narrow permissions directly into the on-chain Functions JavaScript script. This allowed for full end-to-end automation without central servers or manual intervention, but at the cost of ideal security.
 
-**Theoretical Design Challenges**
+## Theoretical Design Challenges
+
 While the Universal Bounty Protocol (UBP) aims to create a trust-minimised workflow, some stages, particularly approval, cannot be made fully trustless. The decision to merge a GitHub pull request remains subjective and human-driven.
 
 To address this, GitBounty embraces flexible trust models by allowing each project to define its own PR approver structure. This could range from a single maintainer to a decentralised reviewer committee.
@@ -79,6 +83,8 @@ This led to a broader insight:
 Many types of work can be formalised as proposal → work → verification → approval processes, each with different degrees of trust minimisation.
 
 By clearly defining the trust boundaries and where discretion enters the process, users can better understand both the value and risk of each bounty.
+
+---
 
 ### Build
 
