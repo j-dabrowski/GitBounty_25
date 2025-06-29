@@ -2,32 +2,32 @@ import { ethers } from "./ethers-6.7.esm.min.js"
 import { abi, contractAddress, chainIdMap } from "./constants.js"
 
 let currentAccount = null;
+let provider;
+let signer;
+let contract;
 
 const connectButton = document.getElementById("connectButton")
-const enterButton = document.getElementById("enterButton")
-const stateButton = document.getElementById("stateButton")
-const feeButton = document.getElementById("feeButton")
-const winnerButton = document.getElementById("winnerButton")
-const timestampButton = document.getElementById("timestampButton")
-const toggleThemeButton = document.getElementById("toggle-theme")
+const mapUsernameButton = document.getElementById("mapUsernameButton")
+const createBountyButton = document.getElementById("createBountyButton")
+const refreshStatusButton = document.getElementById("refreshStatusButton")
+const resetContractButton = document.getElementById("resetContractButton")
+
+const githubUsernameInput = document.getElementById("githubUsername");
+const repoOwnerInput = document.getElementById("repoOwner");
+const repoNameInput = document.getElementById("repoName");
+const issueNumberInput = document.getElementById("issueNumber");
+const ethAmountInput = document.getElementById("ethAmount");
 
 connectButton.onclick = connect
-enterButton.onclick = enterRaffle
-stateButton.onclick = getRaffleState
-feeButton.onclick = getEntranceFee
-winnerButton.onclick = getRecentWinner
-timestampButton.onclick = getLastTimeStamp
-
-toggleThemeButton.addEventListener('click', () => {
-  const body = document.body
-  body.classList.toggle('dark-mode')
-  body.classList.toggle('light-mode')
-})
 
 function updateButtons(status) {
-  [enterButton, stateButton, feeButton, winnerButton, timestampButton].forEach(btn => {
-    btn.disabled = status
-  })
+  [mapUsernameButton, createBountyButton, refreshStatusButton, resetContractButton].forEach(btn => {
+    btn.disabled = status;
+  });
+
+  [githubUsernameInput, repoOwnerInput, repoNameInput, issueNumberInput, ethAmountInput].forEach(input => {
+    input.disabled = status;
+  });
 }
 
 function pressButton(button, status) {
@@ -35,7 +35,6 @@ function pressButton(button, status) {
 }
 
 updateButtons(true)
-document.body.classList.add('light-mode')
 connectButton.innerHTML = "Connect Wallet"
 
 async function connect() {
@@ -50,6 +49,9 @@ async function connect() {
         const short = currentAccount.slice(0, 7) + "..." + currentAccount.slice(-5)
         pressButton(connectButton, true)
         connectButton.innerHTML = `Connected: ${short} on ${networkName}`
+        provider = new ethers.BrowserProvider(window.ethereum)
+        signer = await provider.getSigner()
+        contract = new ethers.Contract(contractAddress, abi, signer)
         updateButtons(false)
       } catch (error) {
         console.error(error)
@@ -65,48 +67,154 @@ async function connect() {
   }
 }
 
-async function enterRaffle() {
-  if (typeof window.ethereum !== "undefined") {
-    const provider = new ethers.BrowserProvider(window.ethereum)
-    const signer = await provider.getSigner()
-    const contract = new ethers.Contract(contractAddress, abi, signer)
-    try {
-      const entranceFee = await contract.getEntranceFee()
-      const tx = await contract.enterRaffle({ value: entranceFee })
-      await tx.wait(1)
-      console.log("Entered Raffle!")
-    } catch (err) {
-      console.error(err)
-    }
+
+mapUsernameButton.onclick = async () => {
+  const username = document.getElementById("githubUsername").value
+  try {
+    const tx = await contract.mapGithubUsernameToAddress(username)
+    await tx.wait()
+    alert("GitHub username mapped!")
+  } catch (err) {
+    console.error("Mapping error:", err)
   }
 }
 
-async function getRaffleState() {
-  const provider = new ethers.BrowserProvider(window.ethereum)
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  const rawState = await contract.getRaffleState()
-  const state = Number(rawState); // convert BigInt → Number
-  console.log(`Raffle State: ${state === 0 ? "OPEN" : "CALCULATING"}`)
+resetContractButton.onclick = async () => {
+  try {
+    const tx = await contract.resetContract()
+    await tx.wait()
+    alert("Contract reset!")
+  } catch (err) {
+    console.error("Error resetting contract", err)
+  }
 }
 
-async function getEntranceFee() {
-  const provider = new ethers.BrowserProvider(window.ethereum)
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  const fee = await contract.getEntranceFee()
-  console.log(`Entrance Fee: ${ethers.formatEther(fee)} ETH`)
+createBountyButton.onclick = async () => {
+  const repoOwner = document.getElementById("repoOwner").value
+  const repoName = document.getElementById("repoName").value
+  const issueNumber = document.getElementById("issueNumber").value
+  const amount = document.getElementById("ethAmount").value
+  try {
+    const tx = await contract.createAndFundBounty(repoOwner, repoName, issueNumber, {
+      value: ethers.parseEther(amount),
+    })
+    await tx.wait()
+    alert("Bounty funded!")
+  } catch (err) {
+    console.error("Bounty error:", err)
+  }
 }
 
-async function getRecentWinner() {
-  const provider = new ethers.BrowserProvider(window.ethereum)
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  const winner = await contract.getRecentWinner()
-  console.log(`Recent Winner: ${winner}`)
-}
+let refreshIntervalId = null;
 
-async function getLastTimeStamp() {
-  const provider = new ethers.BrowserProvider(window.ethereum)
-  const contract = new ethers.Contract(contractAddress, abi, provider)
-  const timestamp = await contract.getLastTimeStamp()
-  const date = new Date(Number(timestamp) * 1000)
-  console.log(`Last Raffle Time: ${date.toLocaleString()}`)
-}
+refreshStatusButton.onclick = async () => {
+  try {
+    const intervalSeconds = 5; // seconds
+    const intervalMs = intervalSeconds * 1000; // milliseconds
+
+    // Clear existing interval if one exists
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId);
+    }
+
+    pressButton(refreshStatusButton, true)
+    refreshStatusButton.innerHTML = `Refreshing every ${intervalSeconds} seconds`;
+
+    // Initial fetch
+    await refreshStatus();
+    // Set repeating refresh loop
+    refreshIntervalId = setInterval(refreshStatus, intervalMs);
+    console.log(`Started auto-refresh every ${intervalSeconds} seconds`);
+  } catch (err) {
+      console.error("Auto-refresh setup error:", err);
+  }
+};
+
+async function refreshStatus() {
+  try {
+    console.log(`Refreshing`);
+    const [
+      status,
+      last_winnerUser,
+      last_repoOwner,
+      last_repo,
+      last_issueNumber,
+      last_claimTime,
+      last_BountyAmount,
+      repoOwner,
+      repo,
+      issueNumber,
+      bountyAmount
+    ] = await Promise.all([
+      contract.getRaffleState(),
+      contract.lastWinnerUser(),
+      contract.last_repo_owner(),
+      contract.last_repo(),
+      contract.last_issueNumber(),
+      contract.getLastTimeStamp(),
+      contract.last_BountyAmount(),
+      contract.getRepoOwner(),
+      contract.getRepo(),
+      contract.getIssueNumber(),
+      contract.getBalance()
+    ]);
+
+    const stateMap = ["BASE", "EMPTY", "READY", "CALCULATING", "PAID"];
+    const currentStatus = stateMap[status];
+    document.getElementById("status").textContent = `Status: ${currentStatus}`;
+
+    const idsPAID = [
+      "lastClaimer",
+      "lastBountyRepo",
+      "lastBountyIssue",
+      "lastClaimer",
+      "lastClaimTime",
+      "lastBountyAmount"
+    ];
+
+    for (const id of idsPAID) {
+      const el = document.getElementById(id);
+      if(currentStatus == "PAID"){
+        el.style.display = "block";
+      } else {
+        el.style.display = "none";
+      }
+    }
+
+    if(currentStatus == "PAID"){
+      document.getElementById("lastClaimer").textContent = `Last Claimer: ${last_winnerUser}`;
+      document.getElementById("lastBountyRepo").textContent = `Last Bounty repo: ${last_repoOwner}/${last_repo}`;
+      document.getElementById("lastBountyIssue").textContent = `Last Bounty issue: ${last_issueNumber}`;
+      const convertedLastTime = (new Date(Number(last_claimTime) * 1000)).toLocaleString(); // convert seconds to ms
+      document.getElementById("lastClaimer").textContent = `Last Claimer: ${last_winnerUser}`;
+      document.getElementById("lastClaimTime").textContent = `Last Claim Time: ${convertedLastTime}`;
+      const readableAmountClaimed = ethers.formatEther(last_BountyAmount);
+      document.getElementById("lastBountyAmount").textContent = `Last Amount Claimed: ${readableAmountClaimed} ether`;
+    }
+
+    const idsREADY = [
+      "bountyRepo",
+      "bountyIssue",
+      "bountyAmount"
+    ];
+
+    for (const id of idsREADY) {
+      const el = document.getElementById(id);
+      if(currentStatus == "READY" || currentStatus == "CALCULATING"){
+        el.style.display = "block";
+      } else {
+        el.style.display = "none";
+      }
+    }
+
+    if(currentStatus == "READY" || currentStatus == "CALCULATING"){
+      document.getElementById("bountyRepo").textContent = `Bounty repo: ${repoOwner}/${repo}`;
+      document.getElementById("bountyIssue").textContent = `Bounty issue: ${issueNumber}`;
+      const readableAmount = ethers.formatEther(bountyAmount);
+      document.getElementById("bountyAmount").textContent = `Amount: ${readableAmount} ether`;
+    }
+
+  } catch (err) {
+    console.error("Status fetch error:", err);
+  }
+};

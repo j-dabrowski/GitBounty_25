@@ -11,7 +11,12 @@ Foundry consists of:
 
 ## Documentation
 
-https://book.getfoundry.sh/
+GitBounty is a Web3 app which allows GitHub users to create bounties on their Github issues. It does this by using smart contract to automatically monitor the Github API with Chainlink Functions and Chainlink Automation.
+
+General usage is as follows:
+We allow developers to register their github username and wallet address in the registry.
+Then, given an existing Github repo, with open issues available,
+A user can create a bounty on an issue by entering the details and the amount of ETH to be paid out.
 
 ## Usage
 

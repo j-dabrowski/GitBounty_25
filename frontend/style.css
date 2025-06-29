@@ -21,7 +21,7 @@ html, body {
 
 #app {
     height: auto; /* Fill the entire viewport height */
-    width: 600px;
+    width: 750px;
     margin: 80px auto;
     display: flex;
     flex-direction: column;
@@ -196,6 +196,47 @@ body.kde-pattern {
     padding: 20px;
 }
 
+.inner-panel {
+  background-color: var(--kde-panel);
+  border: 1px solid var(--kde-border);
+  padding: 16px;
+  box-shadow:
+    inset 0 0 0 1px var(--kde-highlight),
+    2px 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inner-panel {
+  background-color: var(--kde-panel);
+  border: 1px solid var(--kde-border);
+  padding: 20px;
+  box-shadow:
+    inset 0 0 0 1px var(--kde-highlight),
+    2px 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* ✨ Add vertical spacing between elements */
+  height: 330px;
+}
+
+.inner-panel label,
+.inner-panel input,
+.inner-panel button,
+.inner-panel div {
+  line-height: 1.6; /* Slightly taller line spacing for clarity */
+}
+
+input[type="text"] {
+  width: 200px;
+  max-width: 100%;
+}
+
 .main-inner.kde {
     font-weight: bold;
     font-style: italic;
@@ -223,14 +264,15 @@ body.kde-pattern {
     cursor: pointer;
     user-select: none;
   }  
-  
+
+
   .button-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center; /* ✨ vertical center if parent allows */
-    gap: 16px; /* better than using margin */
-    height: 100%; /* required if you want full vertical center */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px; /* spacing between boxes */
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
   }
 
   .button.kde {

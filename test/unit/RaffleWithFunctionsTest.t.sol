@@ -315,4 +315,66 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         assertEq(raffle.getIssueNumber(), "");
     }
 
+    function testResetContractClearsAllState() public skipFork {
+        // Setup modifiable state
+        string memory ownerName = "j-dabrowski";
+        string memory repoName = "Test_Repo_2025";
+        string memory issueId = "1";
+        string memory username = "contributor";
+        address contributor = address(4);
+        uint256 fundAmount = 0.2 ether;
+
+        // Fund the bounty
+        vm.deal(account, 1 ether);
+        vm.prank(account);
+        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+
+        // Map username to contributor
+        vm.prank(contributor);
+        raffle.mapGithubUsernameToAddress(username);
+
+        // Simulate Chainlink fulfillment
+        bytes memory response = bytes(username);
+        bytes memory err = bytes("fake error");
+
+        // Send an actual request to store the ID
+        string[] memory args = new string[](1);
+        args[0] = username;
+
+        vm.prank(account); // must be onlyOwner
+        bytes32 requestId = raffle.sendRequest(functionsSubscriptionId, args);
+
+        // Fulfill with actual request ID
+        vm.prank(functionsOracle);
+        raffle.handleOracleFulfillment(requestId, response, err);
+
+        // Reset the contract
+        vm.prank(account);
+        raffle.resetContract();
+
+        // === Assertions ===
+
+        // State: Contributions
+        assertEq(raffle.getFunderCount(), 0);
+        assertEq(raffle.getContribution(), 0);
+        assertEq(raffle.getBalance(), 0);
+
+        // State: Username mapping
+        assertEq(raffle.getAddressFromUsername(username), address(0));
+
+        // State: Bounty metadata
+        assertEq(raffle.getRepoOwner(), "");
+        assertEq(raffle.getRepo(), "");
+        assertEq(raffle.getIssueNumber(), "");
+
+        // State: Winner/result
+        assertEq(raffle.lastWinnerUser(), "");
+        assertEq(raffle.getLastResponse().length, 0);
+        assertEq(raffle.last_BountyAmount(), 0);
+
+        // State: Enum
+        assertEq(uint(raffle.getRaffleState()), uint(RaffleWithFunctions.RaffleState.BASE));
+    }
+
+
 }

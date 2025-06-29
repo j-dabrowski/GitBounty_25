@@ -46,8 +46,11 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
 
     /* type declarations */
     enum RaffleState {
-        OPEN,
-        CALCULATING
+        BASE,
+        EMPTY,
+        READY,
+        CALCULATING,
+        PAID
     }
 
     // Functions State variables
@@ -56,11 +59,17 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     bytes public s_lastError;
     // Payment Record Keeping
     string public lastWinnerUser;
+    string public last_repo_owner;
+    string public last_repo;
+    string public last_issueNumber;
+    uint256 public last_BountyAmount;
     address private s_lastWinner;
     uint256 private s_lastTimeStamp;
+
     /* state variables */
     // Funding
     mapping(string => address) private s_githubToAddress;
+    string[] private usernames;
     mapping(address => uint256) private s_contributions;
     address[] private funders;
     uint256 private s_totalFunding;
@@ -107,7 +116,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         ConfirmedOwner(msg.sender)
     {
         s_lastTimeStamp = block.timestamp;
-        s_raffleState = RaffleState.OPEN;
+        s_raffleState = RaffleState.BASE;
         i_interval = _interval;
         router = _functionsOracle;
         donID = _donID;
@@ -182,9 +191,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         repo = "";
         issueNumber = "";
         // Set raffle state to OPEN (or CALCULATING if appropriate)
-        s_raffleState = RaffleState.OPEN;
+        s_raffleState = RaffleState.EMPTY;
     }
-
 
     function createAndFundBounty(
         string calldata _owner,
@@ -193,6 +201,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     ) external payable onlyOwner {
         setBountyCriteria(_owner, _repo, _issue);
         _fundBounty(msg.sender, msg.value);
+        s_raffleState = RaffleState.READY;
     }
 
     function mapGithubUsernameToAddress(string calldata username) external {
@@ -200,40 +209,63 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         require(s_githubToAddress[username] == address(0), "Username already mapped");
 
         s_githubToAddress[username] = msg.sender;
+        usernames.push(username);
 
         emit GithubUserMapped(username, msg.sender);
     }
 
+    function resetContract() external onlyOwner {
+        // Reset contributions
+        _resetContributions();
 
-    // When should the winer be picked?
+        // Clear GitHub username mappings
+        for (uint i = 0; i < usernames.length; i++) {
+            string memory user = usernames[i];
+            delete s_githubToAddress[user];
+        }
+        delete usernames;
+
+        // Reset bounty criteria
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
+
+        // Reset winners
+        s_lastWinner = address(0);
+        lastWinnerUser = "";
+        last_BountyAmount = 0;
+
+        // Reset Chainlink Functions-related state
+        s_lastRequestId = bytes32(0);
+        s_lastResponse = "";
+        s_lastError = "";
+
+        // Reset timestamp
+        s_lastTimeStamp = block.timestamp;
+
+        // Reset state
+        s_raffleState = RaffleState.BASE;
+    }
+
+
     /**
-     * This is the function that the Chainlink nodes will call to see
-     * if the lottery is ready to have a winner picked.
-     * The following should be true in order for upkeepNeeded to be true:
-     * 1. The time interval has passed between raffle runs
-     * 2. The lottery is open
-     * 3. The contract has ETH (has players)
-     * 4. Implicitly, your subscription has LINK
      * @param - ignored
-     * @return upkeepNeeded - true if it's time to restart the lottery
+     * @return upkeepNeeded - true if it's time to submit a functions call
      * @return - ignored
      */
     function checkUpkeep(bytes memory /* checkData */) public view 
         returns (bool upkeepNeeded, bytes memory /* performData */ )
     {
         bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) >= i_interval);
-        bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool isReady = s_raffleState == RaffleState.READY;
         bool hasBalance = address(this).balance > 0;
         bool hasFunders = s_funderCount > 0;
         bool hasBountyCriteria = bytes(repo_owner).length > 0 && bytes(repo).length > 0 && bytes(issueNumber).length > 0;
 
-        upkeepNeeded = timeHasPassed && isOpen && hasBalance && hasFunders && hasBountyCriteria;
+        upkeepNeeded = timeHasPassed && isReady && hasBalance && hasFunders && hasBountyCriteria;
         return (upkeepNeeded, "");
     }
 
-    // 1. Get a random number
-    // 2. Use a random number to pick a player
-    // 3. Be automatically called
     function performUpkeep(bytes calldata /* performData */ ) external {
         // Checks
         // check if enough time has passed
@@ -312,7 +344,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
 
     // CHAINLINK FUNCTIONS
     /**
-     * @notice Sends an HTTP request for character information
+     * @notice Checks Github for the user who created PR that was merged for the issue
      * @param subscriptionId The ID for the Chainlink subscription
      * @param args The arguments to pass to the HTTP request
      * @return requestId The ID of the request
@@ -392,7 +424,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
             keccak256(bytes(result)) == keccak256("not_found")
         ) {
             // No state changes — soft fail
-            s_raffleState = RaffleState.OPEN;
+            s_raffleState = RaffleState.READY;
             emit Response(requestId, response, err); // log anyway
             return;
         }
@@ -402,22 +434,13 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
 
         // Soft-fail if unmapped
         if (winner == address(0)) {
-            s_raffleState = RaffleState.OPEN;
+            s_raffleState = RaffleState.READY;
             emit Response(requestId, response, err); // log anyway
             return;
         }
 
         // Payout
         uint256 amount = s_totalFunding;
-        _resetContributions();
-
-        // Clear bounty criteria
-        repo_owner = "";
-        repo = "";
-        issueNumber = "";
-
-        // Reset state
-        s_raffleState = RaffleState.OPEN;
 
         // Send payout
         (bool success, ) = winner.call{value: amount}("");
@@ -425,6 +448,20 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
 
         s_lastWinner = winner;
         lastWinnerUser = result;
+        last_repo_owner = repo_owner;
+        last_repo = repo;
+        last_issueNumber = issueNumber;
+        last_BountyAmount = amount;
+
+        // Clear bounty criteria
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
+
+        _resetContributions();
+
+        // Update state
+        s_raffleState = RaffleState.PAID;
 
         emit BountyClaimed(winner, amount);
         emit Response(requestId, response, err);

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Lottery App</title>
+    <title>GitBounty</title>
     <link rel="stylesheet" href="style.css">
   </head>
 
@@ -29,9 +29,8 @@
                     <div class="lip left"></div>
                     <div class="title-inner">
                       <div class="title-content">
-                        <span class="title-text">App - Smart Contract Lottery</span>
+                        <span class="title-text">App - GitBounty</span>
                         <button id="connectButton" class="button kde">Connect Wallet</button>
-                        <!--<button id="toggle-theme" class="kde-button">Toggle Theme</button>-->
                       </div>
                     </div>
                     <div class="lip right"></div>
@@ -60,23 +59,64 @@
           <div id="app-background">
             <div class="main-inner">
               <div class="button-group">
-                <button id="enterButton" class="button kde" disabled>Enter Raffle</button>
-                <button id="stateButton" class="button kde" disabled>Get Raffle State</button>
-                <button id="feeButton" class="button kde" disabled>Get Entrance Fee</button>
-                <button id="winnerButton" class="button kde" disabled>Recent Winner</button>
-                <button id="timestampButton" class="button kde" disabled>Last Timestamp</button>
-                
-                <!--
-                <input type="text" id="ethAmount" class="kde" placeholder="0.01 ETH to enter" disabled>                
-                -->
-                
-              </div>  
+
+                <div class="inner-panel">
+
+                  <div class="input-row">
+                    <label for="repoOwner">Repo Owner:</label>
+                    <input type="text" id="repoOwner" class="input" placeholder="j-dabrowski" disabled/>
+                  </div>
+                  <div class="input-row">
+                    <label for="repoName">Repo Name:</label>
+                    <input type="text" id="repoName" class="input" placeholder="Test_Repo_2025" disabled/>
+                  </div>
+                  <div class="input-row">
+                    <label for="issueNumber">Issue Number:</label>
+                    <input type="text" id="issueNumber" class="input" placeholder="216" disabled/>
+                  </div>
+                  <div class="input-row">
+                    <label for="ethAmount">ETH:</label>
+                    <input type="text" id="ethAmount" class="input" placeholder="0.01" disabled/>
+                  </div>
+                  <button id="createBountyButton" class="button kde" disabled>Create and Fund Bounty</button>
+                  
+                </div> 
+
+                <div class="inner-panel">
+                  <div class="monitor-group">
+
+                    <button id="refreshStatusButton" class="button kde" disabled>Refresh</button>
+                    <div id="status">Status: ...</div>
+                    
+                    <div id="lastClaimer" style="display: none;">Last Claimer: ...</div>
+                    <div id="lastBountyRepo" style="display: none;">Last Bounty Repo: ...</div>
+                    <div id="lastBountyIssue" style="display: none;">Last Bounty Issue: ...</div>
+                    <div id="lastClaimTime" style="display: none;">Last Claim Time: ...</div>
+                    <div id="lastBountyAmount" style="display: none;">Last Amount Claimed: ...</div>
+
+                    <div id="bountyRepo" style="display: none;">Bounty Repo: ...</div>
+                    <div id="bountyIssue" style="display: none;">Bounty Issue: ...</div>
+                    <div id="bountyAmount" style="display: none;">Amount: ...</div>
+                  
+                  </div>
+                </div>
+
+                <div class="inner-panel">
+                  <div class="input-row">
+                    <label for="githubUsername">GitHub Username:</label>
+                    <input type="text" id="githubUsername" class="input" placeholder="j-dabrowski" disabled/>
+                  </div>
+                  <button id="mapUsernameButton" class="button kde" disabled>Map GitHub Username</button>
+                </div>
+
+                <div class="inner-panel">
+                  <button id="resetContractButton" class="button kde" disabled>Reset Contract</button>
+                </div> 
+
+              </div> 
             </div>
           </div>
-          <!--
-            <label for="ethAmount">ETH Amount</label>
-            <input id="ethAmount" placeholder="0.1" disabled/>
-          -->
+
 
           </div>
           <div class="lip right"></div>
