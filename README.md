@@ -2,12 +2,21 @@
 
 **GitBounty is a Web3 app which allows GitHub users to create bounties on their Github issues.**
 
-It does this by using smart contract to automatically monitor the Github API with Chainlink Functions and Chainlink Automation.
+It does this by using smart contracts to automatically monitor the Github API with Chainlink Functions and Chainlink Automation.
 
 Contract live on eth-sepolia testnet:
 https://sepolia.etherscan.io/address/0x3bA67d986720Dd6fA69871e7113fbC595345B21c
 
 Run the frontend in this repo to interface with the contract and create bounties of your Github issues.
+
+## Usage
+
+General usage is as follows:
+Developers to register their github username and wallet address in the registry.
+
+Then, given an existing Github repo, with open issues available, a user can create a bounty on an issue by entering the details and funding it with ETH. The bounty can be funded multiple times, by multiple users.
+
+Once a branched PR (linked to the bounty's issue) has been merged successfully into the main branch, the Bounty will automatically pay out to the author of the PR.
 
 ---
 
@@ -71,15 +80,6 @@ Many types of work can be formalised as proposal → work → verification → a
 
 By clearly defining the trust boundaries and where discretion enters the process, users can better understand both the value and risk of each bounty.
 
-## Usage
-
-General usage is as follows:
-Developers to register their github username and wallet address in the registry.
-
-Then, given an existing Github repo, with open issues available, a user can create a bounty on an issue by entering the details and funding it with ETH. The bounty can be funded multiple times, by multiple users.
-
-Once a branched PR (linked to the bounty's issue) has been merged successfully into the main branch, the Bounty will automatically pay out to the author of the PR.
-
 ### Build
 
 ```shell
@@ -123,5 +123,6 @@ Test start to finish (with automation)
 `make deploy ARGS="--network sepolia"`
 ```
 
-Register the contract address in a new Chainlink Automation Upkeep
+Register the contract address in a new Chainlink Automation Upkeep.
+
 Register the contract address as a consumer of the Chainlink Functions subscription
