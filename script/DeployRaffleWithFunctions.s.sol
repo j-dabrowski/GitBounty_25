@@ -28,12 +28,15 @@ contract DeployRaffleWithFunctions is Script {
             fundSubscription.fundSubscription(config.vrfCoordinator, config.subscriptionId, config.link, config.account);
         }
 
+        string memory script = vm.readFile("script.js");
+
         vm.startBroadcast(config.account);
         RaffleWithFunctions raffle = new RaffleWithFunctions(
             config.interval,
             config.functionsOracle,
             config.donID,
-            config.functionsSubscriptionId
+            config.functionsSubscriptionId,
+            script
         );
         vm.stopBroadcast();
 

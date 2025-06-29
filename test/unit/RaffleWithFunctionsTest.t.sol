@@ -18,6 +18,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     address account;
     address functionsOracle;
     bytes32 donID;
+    string source;
 
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_PLAYER_BALANCE = 10 ether;
@@ -34,6 +35,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         functionsOracle = config.functionsOracle;
         mockRouter = MockFunctionsOracle(functionsOracle);
         donID = config.donID;
+        source = vm.readFile("script.js");
         vm.deal(PLAYER, STARTING_PLAYER_BALANCE);
     }
 
@@ -44,13 +46,13 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         _;
     }
 
-    // Functions tests
-
     function testConstructorInitializesCorrectly() public {
         assertEq(raffle.s_lastRequestId(), bytes32(0));
         assertEq(raffle.s_lastResponse().length, 0);
         assertEq(raffle.s_lastError().length, 0);
         assertEq(raffle.functionsSubId(), functionsSubscriptionId);
+        string memory deployedSource = raffle.source();
+        assertEq(deployedSource, source, "Constructor did not set source correctly");
     }
 
     modifier multiFundedBounty() {
@@ -264,5 +266,53 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         assertTrue(raffle.s_lastRequestId() != bytes32(0));
     }
 
+    function testAccountIsOwner() public {
+        assertEq(raffle.owner(), account); // Only works if your contract uses ConfirmedOwner
+    }
+
+    function testDeleteAndRefundBounty() public {
+        // Arrange
+        address funder1 = address(0x111);
+        address funder2 = address(0x222);
+        uint256 contribution1 = 1 ether;
+        uint256 contribution2 = 2 ether;
+
+        vm.deal(funder1, contribution1);
+        vm.deal(funder2, contribution2);
+
+        vm.startPrank(funder1);
+        raffle.fundBounty{value: contribution1}();
+        vm.stopPrank();
+
+        vm.startPrank(funder2);
+        raffle.fundBounty{value: contribution2}();
+        vm.stopPrank();
+
+        // Set bounty criteria
+        vm.prank(account);
+        raffle.setBountyCriteria("owner", "repo", "42");
+
+        // Snapshot balances before refund
+        uint256 beforeBalance1 = funder1.balance;
+        uint256 beforeBalance2 = funder2.balance;
+
+        // Act - owner deletes bounty and refunds
+        vm.prank(account);
+        raffle.deleteAndRefundBounty();
+
+        // Assert refunded
+        uint256 afterBalance1 = funder1.balance;
+        uint256 afterBalance2 = funder2.balance;
+
+        assertEq(afterBalance1, beforeBalance1 + contribution1, "Funder1 not refunded correctly");
+        assertEq(afterBalance2, beforeBalance2 + contribution2, "Funder2 not refunded correctly");
+
+        // Assert reset state
+        assertEq(raffle.getFunderCount(), 0);
+        assertEq(raffle.getBalance(), 0);
+        assertEq(raffle.getRepo(), "");
+        assertEq(raffle.getRepoOwner(), "");
+        assertEq(raffle.getIssueNumber(), "");
+    }
 
 }

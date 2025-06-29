@@ -68,10 +68,11 @@ verifyWithConstructor:
   		--etherscan-api-key $(ETHERSCAN_API_KEY) \
   		--chain sepolia \
 		--watch \
-  		--constructor-args 0x000000000000000000000000000000000000000000000000002386f26fc10000000000000000000000000000000000000000000000000000000000000000001e0000000000000000000000009ddfaca8183c41ad55329bdeed9f6a8d53168b1b787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae0c8dfe9ddf94a354fd64655b3300814e4cb3a125fd21505a101055785b5bccee000000000000000000000000000000000000000000000000000000000007a120000000000000000000000000b83e47c2bc239b3bf370bc41e1459a34b41238d066756e2d657468657265756d2d7365706f6c69612d3100000000000000000000
+  		--constructor-args 0x 
+# replace constructor args with constructor bytecode
 
 sendRequestScript:
-	@cast send 0x185471a23eEaE802fc8286752B2899163534e6F6 \
+	@cast send $(CONTRACT_ADDRESS) \
 		"sendRequestWithSource(uint64,string,string[])" \
 		5133 "$$(cat script.js)" '[]' \
 		--rpc-url $(SEPOLIA_RPC_URL) \
@@ -79,11 +80,62 @@ sendRequestScript:
 		--gas-limit 1000000
 
 sendRequestScriptAndArgs:
-	@cast send 0x7595676D36503B56E814AFeffA221Cb69272814e \
+	@cast send $(CONTRACT_ADDRESS) \
 		"sendRequestWithSource(uint64,string,string[])" \
 		5133 "$$(cat script.js)" '["j-dabrowski", "Test_Repo_2025", "2"]' \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--private-key $(PRIVATE_KEY) \
+		--gas-limit 1000000
+
+mapGithubUsername:
+	@cast send $(CONTRACT_ADDRESS) \
+	 "mapGithubUsernameToAddress(string)" "j-dabrowski" \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--gas-limit 1000000
+
+mapGithubUsernameCustom:
+	@read -p "GitHub Username: " USERNAME; \
+	cast send $(CONTRACT_ADDRESS) \
+	"mapGithubUsernameToAddress(string)" $$USERNAME \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--gas-limit 1000000
+
+createAndFundBounty:
+	@cast send $(CONTRACT_ADDRESS) \
+	"createAndFundBounty(string,string,string)" \
+		"j-dabrowski" "Test_Repo_2025" "2" \
+		--value "0.001ether" \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--gas-limit 1000000
+
+createAndFundBountyCustom:
+	@read -p "Repo Owner: " OWNER; \
+	read -p "Repo Name: " REPO; \
+	read -p "Issue Number: " ISSUE; \
+	read -p "Value (e.g. 0.001ether): " VALUE; \
+	cast send $(CONTRACT_ADDRESS) \
+	"createAndFundBounty(string,string,string)" \
+		$$OWNER $$REPO $$ISSUE \
+		--value $$VALUE \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--gas-limit 1000000
+
+deleteAndRefundBounty:
+	@cast send $(CONTRACT_ADDRESS) \
+	"deleteAndRefundBounty()" \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
+		--gas-limit 1000000
+
+performUpkeep:
+	@cast send $(CONTRACT_ADDRESS) \
+	"performUpkeep(bytes)" 0x \
+		--private-key $(PRIVATE_KEY) \
+		--rpc-url $(SEPOLIA_RPC_URL) \
 		--gas-limit 1000000
 
 createSubscription:

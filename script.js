@@ -2,21 +2,54 @@ const owner = args[0];
 const repo = args[1];
 const issueNumber = args[2];
 
-const url = "https://api.github.com/repos/" + owner + "/" + repo + "/issues/" + issueNumber;
+const githubToken = "";
+const query = `repo:${owner}/${repo} type:pr #${issueNumber} in:title,body`;
+const url = `https://api.github.com/search/issues?q=${encodeURIComponent(query)}`;
 
-const response = await Functions.makeHttpRequest({ url });
+const response = await Functions.makeHttpRequest({
+  url,
+  headers: {
+    "Authorization": `Bearer ${githubToken}`,
+    "Accept": "application/vnd.github+json"
+  }
+});
 
 if (response.error) {
-  throw Error("GitHub request failed");
+    return Functions.encodeString("not_found");
 }
 
-const issue = response.data;
+const results = response.data;
 
-
-return Functions.encodeString("j-dabrowski");
-
-if (!issue || !issue.state) {
+if (!results || !results.items || results.items.length === 0) {
   return Functions.encodeString("not_found");
 }
 
-return Functions.encodeString(issue.state);
+// Now check each PR to see if it was merged into main
+for (const item of results.items) {
+  if (!item.pull_request || !item.pull_request.url) continue;
+
+  const prResponse = await Functions.makeHttpRequest({
+    url: item.pull_request.url,
+    headers: {
+      "Authorization": `Bearer ${githubToken}`,
+      "Accept": "application/vnd.github+json"
+    }
+  });
+
+  if (prResponse.error) continue;
+
+  const pr = prResponse.data;
+
+  if (
+    pr &&
+    pr.merged_at &&
+    pr.base &&
+    pr.base.ref === "main" &&
+    pr.user &&
+    pr.user.login
+  ) {
+    return Functions.encodeString(pr.user.login);
+  }
+}
+
+return Functions.encodeString("not_found");

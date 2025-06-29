@@ -15,6 +15,31 @@ https://book.getfoundry.sh/
 
 ## Usage
 
+Live Testnet Tests
+
+Test manual run from start to finish (not automation)
+
+0. Create Functions Subscription at https://functions.chain.link/sepolia/
+1. make deploy ARGS="--network sepolia"
+   1a. Get contract address from output
+2. Add contract address as a consumer of Functions Subscription
+3. Update .env CONTRACT_ADDRESS, run source .env
+4. make mapGithubUsername
+5. make createAndFundBounty
+6. make performUpkeep
+
+Test Create and Delete bounty
+
+1. make createAndFundBounty
+2. make deleteAndRefundBounty
+
+Test start to finish (with automation)
+
+1. Register new custom logic upkeep, using contract address https://automation.chain.link/new-custom-logic
+2. make mapGithubUsername
+3. make createAndFundBounty
+4. let functions / upkeep auto-run by chainlink automation.
+
 ### Build
 
 ```shell
@@ -52,6 +77,8 @@ $ anvil
 ```shell
 $ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
+
+`make deploy ARGS="--network sepolia"`
 
 Confirmed working source inputs (etherscan):
 return Functions.encodeString("true");

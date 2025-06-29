@@ -55,6 +55,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     bytes public s_lastResponse;
     bytes public s_lastError;
     // Payment Record Keeping
+    string public lastWinnerUser;
     address private s_lastWinner;
     uint256 private s_lastTimeStamp;
     /* state variables */
@@ -75,6 +76,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     address router;
     bytes32 donID;
     uint64 public functionsSubId;
+    string public source;
     // Callback gas limit
     uint32 gasLimit = 300000;
 
@@ -91,21 +93,6 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         bytes err
     );
 
-    // JavaScript source code hardcoded
-    // Fetch character name from the Star Wars API.
-    // Documentation: https://swapi.info/people
-    string source =
-        "try {"
-        "await Functions.makeHttpRequest({"
-        "url: \"https://example.com/invalid-or-unreliable-url\""
-        "});"
-        "} catch (e) {"
-        "// Swallow all errors"
-        "}"
-
-        "// Always return true"
-        "return Functions.encodeString(true);";
-
     /**
      * @notice Initializes the contract with the Chainlink router address and sets the contract owner
      */
@@ -113,7 +100,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         uint256 _interval,
         address _functionsOracle,
         bytes32 _donID,
-        uint64 _functionsSubId
+        uint64 _functionsSubId,
+        string memory sourceCode
     )
         FunctionsClient(_functionsOracle)
         ConfirmedOwner(msg.sender)
@@ -124,6 +112,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         router = _functionsOracle;
         donID = _donID;
         functionsSubId = _functionsSubId;
+        source = sourceCode;
     }
 
     function setBountyCriteria(
@@ -173,6 +162,29 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         
         emit BountyFundWithdrawn(msg.sender, amount);
     }
+
+    function deleteAndRefundBounty() external onlyOwner {
+        // Refund all contributors
+        for (uint256 i = 0; i < funders.length; i++) {
+            address funder = funders[i];
+            uint256 amount = s_contributions[funder];
+            if (amount > 0) {
+                s_contributions[funder] = 0;
+                (bool success, ) = funder.call{value: amount}("");
+                if (!success) revert Raffle__TransferFailed();
+                emit BountyFundWithdrawn(funder, amount);
+            }
+        }
+        // Reset funding state
+        _resetContributions();
+        // Reset bounty criteria
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
+        // Set raffle state to OPEN (or CALCULATING if appropriate)
+        s_raffleState = RaffleState.OPEN;
+    }
+
 
     function createAndFundBounty(
         string calldata _owner,
@@ -380,6 +392,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
             keccak256(bytes(result)) == keccak256("not_found")
         ) {
             // No state changes — soft fail
+            s_raffleState = RaffleState.OPEN;
             emit Response(requestId, response, err); // log anyway
             return;
         }
@@ -389,6 +402,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
 
         // Soft-fail if unmapped
         if (winner == address(0)) {
+            s_raffleState = RaffleState.OPEN;
             emit Response(requestId, response, err); // log anyway
             return;
         }
@@ -410,6 +424,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         if (!success) revert Raffle__TransferFailed();
 
         s_lastWinner = winner;
+        lastWinnerUser = result;
 
         emit BountyClaimed(winner, amount);
         emit Response(requestId, response, err);
