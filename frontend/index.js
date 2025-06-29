@@ -11,21 +11,23 @@ const mapUsernameButton = document.getElementById("mapUsernameButton")
 const createBountyButton = document.getElementById("createBountyButton")
 const refreshStatusButton = document.getElementById("refreshStatusButton")
 const resetContractButton = document.getElementById("resetContractButton")
+const fundBountyButton = document.getElementById("fundBountyButton")
 
 const githubUsernameInput = document.getElementById("githubUsername");
 const repoOwnerInput = document.getElementById("repoOwner");
 const repoNameInput = document.getElementById("repoName");
 const issueNumberInput = document.getElementById("issueNumber");
 const ethAmountInput = document.getElementById("ethAmount");
+const ethAmountExtraInput = document.getElementById("ethAmountExtra");
 
 connectButton.onclick = connect
 
 function updateButtons(status) {
-  [mapUsernameButton, createBountyButton, refreshStatusButton, resetContractButton].forEach(btn => {
+  [mapUsernameButton, createBountyButton, refreshStatusButton, resetContractButton, fundBountyButton].forEach(btn => {
     btn.disabled = status;
   });
 
-  [githubUsernameInput, repoOwnerInput, repoNameInput, issueNumberInput, ethAmountInput].forEach(input => {
+  [githubUsernameInput, repoOwnerInput, repoNameInput, issueNumberInput, ethAmountInput, ethAmountExtraInput].forEach(input => {
     input.disabled = status;
   });
 }
@@ -36,6 +38,32 @@ function pressButton(button, status) {
 
 updateButtons(true)
 connectButton.innerHTML = "Connect Wallet"
+
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", async (accounts) => {
+    const isConnected = connectButton.classList.contains("pressed");
+
+    if (!isConnected) return; // Do nothing unless already connected
+
+    if (accounts.length === 0) {
+      // Wallet disconnected
+      currentAccount = null;
+      pressButton(connectButton, false);
+      connectButton.innerHTML = "Connect Wallet";
+      updateButtons(true);
+    } else {
+      // Wallet account changed while connected
+      currentAccount = accounts[0];
+      const chainId = await ethereum.request({ method: "eth_chainId" });
+      const networkName = chainIdMap[chainId] || "Unknown Network";
+      const short = currentAccount.slice(0, 7) + "..." + currentAccount.slice(-5);
+      connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
+      provider = new ethers.BrowserProvider(window.ethereum);
+      signer = await provider.getSigner();
+      contract = new ethers.Contract(contractAddress, abi, signer);
+    }
+  });
+}
 
 async function connect() {
   if (typeof window.ethereum !== "undefined") {
@@ -97,6 +125,19 @@ createBountyButton.onclick = async () => {
   try {
     const tx = await contract.createAndFundBounty(repoOwner, repoName, issueNumber, {
       value: ethers.parseEther(amount),
+    })
+    await tx.wait()
+    alert("Bounty funded!")
+  } catch (err) {
+    console.error("Bounty error:", err)
+  }
+}
+
+fundBountyButton.onclick = async () => {
+  const amount = document.getElementById("ethAmountExtra").value
+  try {
+    const tx = await contract.fundBounty({
+      value: ethers.parseEther(amount)
     })
     await tx.wait()
     alert("Bounty funded!")

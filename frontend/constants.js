@@ -1,4 +1,4 @@
-export const contractAddress = "0x3bA67d986720Dd6fA69871e7113fbC595345B21c"
+export const contractAddress = "0x76bd2033Af839bED959Ad5Fb5c5fA121A47330E0"
 export const chainIdMap = {
   "0x1": "Ethereum Mainnet",
   "0x5": "Goerli Testnet",
