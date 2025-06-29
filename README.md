@@ -9,11 +9,8 @@ https://sepolia.etherscan.io/address/0x3bA67d986720Dd6fA69871e7113fbC595345B21c
 
 Run the frontend in this repo to interface with the contract and create bounties of your Github issues.
 
----
+# General Usage
 
-## Usage
-
-General usage is as follows:
 Developers to register their github username and wallet address in the registry.
 
 Then, given an existing Github repo, with open issues available, a user can create a bounty on an issue by entering the details and funding it with ETH. The bounty can be funded multiple times, by multiple users.
