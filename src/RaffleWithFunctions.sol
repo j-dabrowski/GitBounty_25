@@ -274,6 +274,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
             revert Raffle__UpkeepNotNeeded(address(this).balance, s_funderCount, uint256(s_raffleState));
         }
         s_raffleState = RaffleState.CALCULATING;
+        s_lastTimeStamp = block.timestamp;
         
         // === Prepare Request Arguments ===
         string[] memory args = new string[](3);
