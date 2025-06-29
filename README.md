@@ -9,7 +9,7 @@ https://sepolia.etherscan.io/address/0x3bA67d986720Dd6fA69871e7113fbC595345B21c
 
 Run the frontend in this repo to interface with the contract and create bounties of your Github issues.
 
-# General Usage
+### General Usage
 
 Developers to register their github username and wallet address in the registry.
 
