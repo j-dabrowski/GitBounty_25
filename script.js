@@ -2,14 +2,14 @@ const owner = args[0];
 const repo = args[1];
 const issueNumber = args[2];
 
-const githubToken = "";
+const github = "";
 const query = `repo:${owner}/${repo} type:pr #${issueNumber} in:title,body`;
 const url = `https://api.github.com/search/issues?q=${encodeURIComponent(query)}`;
 
 const response = await Functions.makeHttpRequest({
   url,
   headers: {
-    "Authorization": `Bearer ${githubToken}`,
+    "Authorization": `Bearer ${github}`,
     "Accept": "application/vnd.github+json"
   }
 });
@@ -31,7 +31,7 @@ for (const item of results.items) {
   const prResponse = await Functions.makeHttpRequest({
     url: item.pull_request.url,
     headers: {
-      "Authorization": `Bearer ${githubToken}`,
+      "Authorization": `Bearer ${github}`,
       "Accept": "application/vnd.github+json"
     }
   });

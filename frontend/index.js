@@ -12,6 +12,7 @@ const createBountyButton = document.getElementById("createBountyButton")
 const refreshStatusButton = document.getElementById("refreshStatusButton")
 const resetContractButton = document.getElementById("resetContractButton")
 const fundBountyButton = document.getElementById("fundBountyButton")
+const withdrawFundButton = document.getElementById("withdrawFundButton")
 
 const githubUsernameInput = document.getElementById("githubUsername");
 const repoOwnerInput = document.getElementById("repoOwner");
@@ -23,7 +24,7 @@ const ethAmountExtraInput = document.getElementById("ethAmountExtra");
 connectButton.onclick = connect
 
 function updateButtons(status) {
-  [mapUsernameButton, createBountyButton, refreshStatusButton, resetContractButton, fundBountyButton].forEach(btn => {
+  [mapUsernameButton, createBountyButton, refreshStatusButton, resetContractButton, fundBountyButton, withdrawFundButton].forEach(btn => {
     btn.disabled = status;
   });
 
@@ -141,6 +142,16 @@ fundBountyButton.onclick = async () => {
     })
     await tx.wait()
     alert("Bounty funded!")
+  } catch (err) {
+    console.error("Bounty error:", err)
+  }
+}
+
+withdrawFundButton.onclick = async () => {
+  try {
+    const tx = await contract.withdrawBountyFund()
+    await tx.wait()
+    alert("Bounty fund withdrawn!")
   } catch (err) {
     console.error("Bounty error:", err)
   }

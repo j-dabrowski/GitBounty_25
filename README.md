@@ -129,3 +129,48 @@ Test start to finish (with automation)
 Register the contract address in a new Chainlink Automation Upkeep.
 
 Register the contract address as a consumer of the Chainlink Functions subscription
+
+### Offchain secrets
+
+Clone the official chainlink functions examples repo in another directory.
+
+- env-enc tool
+- secrets encryption script
+  then follow the steps to upload the encrypted secrets file (created using the script mentioned above) to amazon web bucket.
+  Use the gen-offchain-secrets.js script from Chainlink's smart-contract-examples repo (under /functions-examples/...)
+  This script can be customised to generate a json file for particular secrets you have in your env-enc file.
+  For example, the default in that script is COINMARKETCAP_API_KEY - the script will grab out the value from env-enc file by this key and generate the json with it.
+
+Then upload the json file to Amazon web bucket.
+https://docs.aws.amazon.com/AmazonS3/latest/userguide/GetStartedWithS3.html#creating-bucket
+https://docs.aws.amazon.com/AmazonS3/latest/userguide/uploading-an-object-bucket.html
+
+link to uploaded json bucket
+
+link direct to json file
+
+link to uploader
+
+Before chainlink offchain secrets tutorial:
+node -v
+v18.16.0
+
+After:
+node -v
+v20 ?
+
+TO TEST LOCAL SIMULATION AND LIVE CONTRACT USING GITBOUNTY SCRIPT AND GITHUB SECRET:
+cd /Users/josef/Projects/Courses/chainlink-smart-contract-examples/smart-contract-examples/functions-examples
+Create the \_gitbounty versions of request.js, source.js, gen_offchain_secrets.js -- done
+generate new github secret on github
+store new github secret in enc-env as GITHUB_SECRET
+run gen_offchain_secrets_gitbounty.js - gets GITHUB_SECRET from your local env-enc, creates offchain-secrets.json
+$ node /Users/josef/Projects/Courses/chainlink-smart-contract-examples/smart-contract-examples/functions-examples/examples/7-use-secrets-url/gen-offchain-secrets_gitbounty.js
+follow instructions to upload the newly generated offchain-secrets json to amazon web bucket, get link
+use link to update request_gitbounty.js script secretsUrls variable, so running the request script passes the url to the script being run in both local sim and on CL functions oracles
+check if correct values returned by script
+
+- note it creates it with the key 'apiKey', so in your CL functions script, the secret will be imported via key 'apiKey'
+  offchain-secrets.json: upload this to an amazon web bucket via online instructions
+  $ node examples/7-use-secrets-url/request_gitbounty.js
+- run this, and it will simulate your request, then actually make the request.

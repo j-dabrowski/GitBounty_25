@@ -105,8 +105,8 @@ mapGithubUsernameCustom:
 createAndFundBounty:
 	@cast send $(CONTRACT_ADDRESS) \
 	"createAndFundBounty(string,string,string)" \
-		"j-dabrowski" "Test_Repo_2025" "2" \
-		--value "0.001ether" \
+		"j-dabrowski" "Test_Repo_2025" "100" \
+		--value "0.0001ether" \
 		--private-key $(PRIVATE_KEY) \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--gas-limit 1000000
@@ -136,7 +136,13 @@ performUpkeep:
 	"performUpkeep(bytes)" 0x \
 		--private-key $(PRIVATE_KEY) \
 		--rpc-url $(SEPOLIA_RPC_URL) \
-		--gas-limit 1000000
+		--gas-limit 1000000 \
+		--json
+
+checkUpkeep:
+	@cast call $(CONTRACT_ADDRESS) \
+	"checkUpkeep(bytes)(bool,bytes)" 0x \
+  	--rpc-url $(SEPOLIA_RPC_URL)
 
 createSubscription:
 	@forge script script/Interactions.s.sol:CreateSubscription $(NETWORK_ARGS)

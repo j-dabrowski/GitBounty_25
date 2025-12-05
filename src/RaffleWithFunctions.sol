@@ -172,7 +172,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         emit BountyFundWithdrawn(msg.sender, amount);
     }
 
-    function deleteAndRefundBounty() external onlyOwner {
+    function deleteAndRefundBounty() public onlyOwner {
         // Refund all contributors
         for (uint256 i = 0; i < funders.length; i++) {
             address funder = funders[i];
@@ -215,6 +215,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     }
 
     function resetContract() external onlyOwner {
+        deleteAndRefundBounty();
+        
         // Reset contributions
         _resetContributions();
 
@@ -282,18 +284,13 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         args[1] = repo;
         args[2] = issueNumber;
 
-        FunctionsRequest.Request memory req;
-        req._initializeRequestForInlineJavaScript(source);
-        if (args.length > 0) {
-            req._setArgs(args);
+        try this.sendRequest(functionsSubId, args) returns (bytes32 requestId) {
+            s_lastRequestId = requestId;
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("Functions request error: ", reason)));
+        } catch {
+            revert("Functions request failed: unknown reason");
         }
-
-        s_lastRequestId = _sendRequest(
-            req._encodeCBOR(),
-            functionsSubId,
-            gasLimit,
-            donID
-        );
     }
 
     function _resetContributions() internal {
@@ -353,7 +350,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     function sendRequest(
         uint64 subscriptionId,
         string[] calldata args
-    ) external onlyOwner returns (bytes32 requestId) {
+    ) external returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
         req._initializeRequestForInlineJavaScript(source);
         if (args.length > 0) {

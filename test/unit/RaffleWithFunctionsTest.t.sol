@@ -7,6 +7,11 @@ import {RaffleWithFunctions} from "../../src/RaffleWithFunctions.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {MockFunctionsOracle} from "../mocks/MockFunctionsOracle.sol";
 import {CodeConstants, HelperConfig} from "script/HelperConfig.s.sol";
+import "forge-std/console.sol";
+
+import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
+
+using FunctionsRequest for FunctionsRequest.Request;
 
 contract RaffleWithFunctionsTest is CodeConstants, Test {
     RaffleWithFunctions public raffle;
@@ -375,6 +380,20 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // State: Enum
         assertEq(uint(raffle.getRaffleState()), uint(RaffleWithFunctions.RaffleState.BASE));
     }
+
+
+function testPrintEncodedCBOR() public {
+    string memory source = "return Functions.encodeString(\"j-dabrowski\");";
+
+    FunctionsRequest.Request memory req;
+
+    req._initializeRequestForInlineJavaScript(source);
+
+
+    bytes memory cborPayload = req._encodeCBOR();
+
+    console.logBytes(cborPayload); // 🔍 Print the CBOR
+}
 
 
 }
