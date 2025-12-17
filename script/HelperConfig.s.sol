@@ -33,6 +33,7 @@ contract HelperConfig is CodeConstants, Script {
         address account;
         address functionsOracle;
         bytes32 donID;
+        bytes encryptedSecretsUrls;
     }
 
     NetworkConfig public localNetworkConfig;
@@ -58,6 +59,14 @@ contract HelperConfig is CodeConstants, Script {
     }
 
     function getSepoliaEthConfig() public pure returns(NetworkConfig memory) {
+        // Define the encrypted secrets URLs (this should be generated off-chain and passed here)
+        bytes memory _encryptedSecretsUrls = abi.encode(
+            "https://example.com/encrypted-secrets.json"
+        );
+        // to do - replace with use of Chainlink's secretsManager tool which encrypts the URL
+        // abi encode only converts to bytes, does not encrypt
+        // OR: use unecrypted URL here, then encrypt in the deploy script via secretsManager
+        
         return NetworkConfig({
             entranceFee: 0.01 ether, // 1e16
             interval: 30, // 30 sec
@@ -69,7 +78,8 @@ contract HelperConfig is CodeConstants, Script {
             link: 0x6641415a61bCe80D97a715054d1334360Ab833Eb,
             account: 0x030C29e1B5D2A2Faf23A4ec51D0351B4e7431293, // burner account address on eth-sepolia (with testnet funds)
             functionsOracle: 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0, // real oracle,
-            donID: 0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000
+            donID: 0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000,
+            encryptedSecretsUrls: _encryptedSecretsUrls
         });
     }
 
@@ -93,6 +103,11 @@ contract HelperConfig is CodeConstants, Script {
                 // Deploy RaffleWithFunctions with mock oracle
         MockFunctionsOracle mockOracle = new MockFunctionsOracle(); // temporary address
 
+        // Define the encrypted secrets URLs (this should be generated off-chain and passed here)
+        bytes memory _encryptedSecretsUrls = abi.encode(
+            ""
+        );
+
         localNetworkConfig = NetworkConfig({
             entranceFee: 0.01 ether, // 1e16
             interval: 30, // 30 sec
@@ -104,7 +119,8 @@ contract HelperConfig is CodeConstants, Script {
             link: address(linkToken),
             account: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38, // Foundry default address for tx.origin and msg.sender
             functionsOracle: address(mockOracle), // address of deployed mock Functions Oracle
-            donID: bytes32("mock-don-id") // placeholder
+            donID: bytes32("mock-don-id"), // placeholder
+            encryptedSecretsUrls: _encryptedSecretsUrls
         });
         return localNetworkConfig;
     }

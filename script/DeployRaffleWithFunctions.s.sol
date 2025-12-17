@@ -30,12 +30,17 @@ contract DeployRaffleWithFunctions is Script {
 
         string memory script = vm.readFile("script.js");
 
+        // check request_gitbounty - secretsManager gets imported via chainlink/functions-toolkit
+        // get unencrypted secrets URL from helperconfig, then encrypt it here via secretsManager
+        // then pass encrypted secret to the new contract constructor
+
         vm.startBroadcast(config.account);
         RaffleWithFunctions raffle = new RaffleWithFunctions(
             config.interval,
             config.functionsOracle,
             config.donID,
             config.functionsSubscriptionId,
+            config.encryptedSecretsUrls,
             script
         );
         vm.stopBroadcast();

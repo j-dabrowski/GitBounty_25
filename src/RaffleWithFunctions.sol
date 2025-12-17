@@ -88,6 +88,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     string public source;
     // Callback gas limit
     uint32 gasLimit = 300000;
+    bytes public encryptedSecretsUrls;
 
     /** Events */
     event GithubUserMapped(string indexed username, address indexed userAddress);
@@ -110,6 +111,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         address _functionsOracle,
         bytes32 _donID,
         uint64 _functionsSubId,
+        bytes memory _encryptedSecretsUrls,
         string memory sourceCode
     )
         FunctionsClient(_functionsOracle)
@@ -121,6 +123,7 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         router = _functionsOracle;
         donID = _donID;
         functionsSubId = _functionsSubId;
+        encryptedSecretsUrls = _encryptedSecretsUrls;
         source = sourceCode;
     }
 
@@ -353,8 +356,13 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     ) external returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
         req._initializeRequestForInlineJavaScript(source);
+        // Add args if they exist
         if (args.length > 0) {
             req._setArgs(args);
+        }
+        // Add encrypted secrets URLs if they exist
+        if (encryptedSecretsUrls.length > 0) {
+            req._addSecretsReference(encryptedSecretsUrls);
         }
 
         s_lastRequestId = _sendRequest(
@@ -374,8 +382,13 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
     ) external onlyOwner returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
         req._initializeRequestForInlineJavaScript(sentSource);
+        // Add args if they exist
         if (args.length > 0) {
             req._setArgs(args);
+        }
+        // Add encrypted secrets URLs if they exist
+        if (encryptedSecretsUrls.length > 0) {
+            req._addSecretsReference(encryptedSecretsUrls);
         }
 
         s_lastRequestId = _sendRequest(

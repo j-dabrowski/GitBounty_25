@@ -83,6 +83,60 @@ By clearly defining the trust boundaries and where discretion enters the process
 
 ---
 
+### Design
+
+gen_offchain_secrets.js
+
+- Generates offchain-secrets.json file containing encrypted env-enc environment variable secret
+
+send_secrets_to_dons.js
+
+- Encrypts offchain-secrets.json amazon web bucket url, sends to chainlink DONS and exports ID and slot info as a .json 'secrets_slot_and_id.json' or 'config.json'
+
+simulate_request.js
+
+- Tests the Chainlink Functions request to GitHub API
+
+Gitbounty.sol
+
+- Solidity contract to register username/address, hold bounty currency, and perform Chainlink Functions requests to the GitHub API
+
+DeployGitbounty.s.sol
+
+- Deploys Gitbounty.sol using config from HelperConfig.s.sol
+
+HelperConfig.s.sol
+
+- Provides DeployGitbounty.s.sol with config appropriate to blockchain network being deployed on. Reads the secrets_slot_and_id.json/config.json
+
+GitbountyTest.t.sol
+
+- Tests deployment and methods of GitBounty.sol (excluding Chainlink Functions request)
+
+.env
+↓
+gen_offchain_secrets.js
+↓
+offchain-secrets.json (encrypted)
+↓
+send_secrets_to_dons.js
+↓
+(secretsSlotId, secretsVersion)
+↓
+.env or config.json
+↓
+HelperConfig.s.sol
+↓
+DeployGitbounty.s.sol
+↓
+Gitbounty.sol
+↓
+Chainlink DON
+↓
+GitHub API
+↓
+fulfillRequest()
+
 ### Build
 
 ```shell
