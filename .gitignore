@@ -12,6 +12,7 @@ docs/
 
 # Dotenv file
 .env
+offchain/.env.enc
 
 # Cast Password file
 .password
@@ -22,6 +23,8 @@ lib/
 .DS_Store
 
 frontend/node_modules/
+offchain/node_modules/
 
 folder_structure.txt
 
+offchain/encrypted-secrets-urls.sepolia.json

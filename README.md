@@ -83,13 +83,45 @@ By clearly defining the trust boundaries and where discretion enters the process
 
 ---
 
-### Design
+### Usage
+
+Navigate to offchain/
+$ cd offchain
+
+Install the npm dependencies
+$ brew install python@3.11
+$ PYTHON=/usr/local/bin/python3.11 npm install
+
+Set the env-enc password
+$ npx env-enc set-pw
+
+Set your Private Key as an encrypted local variable
+$ npx env-enc set
+(key = PRIVATE_KEY)
+
+Set your Sepolia RPC Url as an encrypted local variable
+$ npx env-enc set
+(key = SEPOLIA_RPC_URL)
+
+Set the GitHub API secret as an encrypted local variable
+$ npx env-enc set
+(key = GITHUB_SECRET)
+
+Run gen_offchain_secrets.js
 
 gen_offchain_secrets.js
 
 - Generates offchain-secrets.json file containing encrypted env-enc environment variable secret
 
-send_secrets_to_dons.js
+Upload offchain-secrets.json to Amazon Web Bucket and copy the url
+
+Set the GitHub secret URL as an encrypted local variable
+$ npx env-enc set
+(key = GITHUB_SECRET_URL)
+
+Run encrypt_secrets_url.js
+
+encrypt_secrets_url.js
 
 - Encrypts offchain-secrets.json amazon web bucket url, sends to chainlink DONS and exports ID and slot info as a .json 'secrets_slot_and_id.json' or 'config.json'
 
@@ -97,9 +129,29 @@ simulate_request.js
 
 - Tests the Chainlink Functions request to GitHub API
 
+### Design
+
+#### offchain/
+
+gen_offchain_secrets.js
+
+- Generates offchain-secrets.json file containing encrypted env-enc environment variable secret
+
+encrypt_secrets_url.js
+
+- Encrypts offchain-secrets.json amazon web bucket url, sends to chainlink DONS and exports ID and slot info as a .json 'secrets_slot_and_id.json' or 'config.json'
+
+simulate_request.js
+
+- Tests the Chainlink Functions request to GitHub API
+
+#### src/
+
 Gitbounty.sol
 
 - Solidity contract to register username/address, hold bounty currency, and perform Chainlink Functions requests to the GitHub API
+
+#### script/
 
 DeployGitbounty.s.sol
 
@@ -109,9 +161,13 @@ HelperConfig.s.sol
 
 - Provides DeployGitbounty.s.sol with config appropriate to blockchain network being deployed on. Reads the secrets_slot_and_id.json/config.json
 
+#### test/
+
 GitbountyTest.t.sol
 
 - Tests deployment and methods of GitBounty.sol (excluding Chainlink Functions request)
+
+### Reference
 
 .env
 ↓
@@ -119,11 +175,9 @@ gen_offchain_secrets.js
 ↓
 offchain-secrets.json (encrypted)
 ↓
-send_secrets_to_dons.js
+encrypt_secrets_url.js
 ↓
-(secretsSlotId, secretsVersion)
-↓
-.env or config.json
+encrypted-secrets-urls.network.json
 ↓
 HelperConfig.s.sol
 ↓
@@ -136,6 +190,55 @@ Chainlink DON
 GitHub API
 ↓
 fulfillRequest()
+
+Env-enc reference:
+
+npx env-enc set-pw
+
+- if no .env.enc exists, sets the password and creates new file
+- if .env.enc exists, inputs the password to allow edits
+
+npx env-enc view
+
+- decrypts and lists all keys and values
+
+npx env-enc set
+
+- prompts for key and value input
+
+npx env-enc remove <name>
+
+- Removes a variable from the encrypted environment variable file
+
+npx env-enc remove-all
+
+- Deletes the encrypted environment variable file
+
+// Layout of Contract:
+// version
+// imports
+// errors
+// interfaces, libraries, contracts
+// Type declarations
+// State variables
+// Events
+// Modifiers
+// Functions
+
+// Layout of Functions:
+// constructor
+// receive function (if exists)
+// fallback function (if exists)
+// external
+// public
+// internal
+// private
+// view & pure functions
+
+Gitbounty.sol State Machine:
+Open
+Funded
+...
 
 ### Build
 

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {DeployRaffleWithFunctions} from "script/DeployRaffleWithFunctions.s.sol";
-import {RaffleWithFunctions} from "../../src/RaffleWithFunctions.sol";
+import {DeployGitbounty} from "script/DeployGitbounty.s.sol";
+import {Gitbounty} from "../../src/Gitbounty.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {MockFunctionsOracle} from "../mocks/MockFunctionsOracle.sol";
 import {CodeConstants, HelperConfig} from "script/HelperConfig.s.sol";
@@ -13,8 +13,8 @@ import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 
 using FunctionsRequest for FunctionsRequest.Request;
 
-contract RaffleWithFunctionsTest is CodeConstants, Test {
-    RaffleWithFunctions public raffle;
+contract GitbountyTest is CodeConstants, Test {
+    Gitbounty public gitbounty;
     HelperConfig public helperConfig;
     MockFunctionsOracle public mockRouter;
 
@@ -31,8 +31,8 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     event BountyFunded(address indexed sender, uint256 value);
 
     function setUp() public {
-        DeployRaffleWithFunctions deployer = new DeployRaffleWithFunctions();
-        (raffle, helperConfig) = deployer.deployContract();
+        DeployGitbounty deployer = new DeployGitbounty();
+        (gitbounty, helperConfig) = deployer.deployContract();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
         interval = config.interval;
         functionsSubscriptionId = config.functionsSubscriptionId;
@@ -52,11 +52,11 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
     }
 
     function testConstructorInitializesCorrectly() public {
-        assertEq(raffle.s_lastRequestId(), bytes32(0));
-        assertEq(raffle.s_lastResponse().length, 0);
-        assertEq(raffle.s_lastError().length, 0);
-        assertEq(raffle.functionsSubId(), functionsSubscriptionId);
-        string memory deployedSource = raffle.source();
+        assertEq(gitbounty.s_lastRequestId(), bytes32(0));
+        assertEq(gitbounty.s_lastResponse().length, 0);
+        assertEq(gitbounty.s_lastError().length, 0);
+        assertEq(gitbounty.functionsSubId(), functionsSubscriptionId);
+        string memory deployedSource = gitbounty.source();
         assertEq(deployedSource, source, "Constructor did not set source correctly");
     }
 
@@ -70,13 +70,13 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         vm.deal(funder3, 1 ether);
         
         vm.prank(funder1);
-        raffle.fundBounty{value: 0.1 ether}();
+        gitbounty.fundBounty{value: 0.1 ether}();
         
         vm.prank(funder2);
-        raffle.fundBounty{value: 0.1 ether}();
+        gitbounty.fundBounty{value: 0.1 ether}();
         
         vm.prank(funder3);
-        raffle.fundBounty{value: 0.1 ether}();
+        gitbounty.fundBounty{value: 0.1 ether}();
 
         _;
     }
@@ -85,14 +85,14 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         address funder1 = address(1);
         vm.deal(funder1, 1 ether);
         vm.prank(funder1);
-        raffle.fundBounty{value: 0.1 ether}();
+        gitbounty.fundBounty{value: 0.1 ether}();
         _;
     }
 
     function testFundBountyIncreasesContributionsAndFunding() public singleFundedBounty {
         address funder1 = address(1);
         vm.prank(funder1);
-        uint256 amountFunded = raffle.getContribution();
+        uint256 amountFunded = gitbounty.getContribution();
         assertEq(amountFunded, 0.1 ether);
     }
 
@@ -100,14 +100,14 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // Get amount that will be withdrawn
         address funder1 = address(1);
         vm.prank(funder1);
-        uint256 amountToWithdraw = raffle.getContribution();
+        uint256 amountToWithdraw = gitbounty.getContribution();
 
         // Get balance of funder before withdraw
         uint256 balanceBefore = funder1.balance;
 
         // Withdraw
         vm.prank(funder1);
-        raffle.withdrawBountyFund();
+        gitbounty.withdrawBountyFund();
 
         // Get balance of funder after withdraw
         uint256 balanceAfter = funder1.balance;
@@ -120,14 +120,14 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         address contributor = address(4);
 
         vm.prank(contributor);
-        raffle.mapGithubUsernameToAddress(username);
+        gitbounty.mapGithubUsernameToAddress(username);
 
         vm.expectRevert();
         vm.prank(contributor);
-        raffle.mapGithubUsernameToAddress(username);
+        gitbounty.mapGithubUsernameToAddress(username);
 
         vm.prank(contributor);
-        address extractedAddress = raffle.getAddressFromUsername(username);
+        address extractedAddress = gitbounty.getAddressFromUsername(username);
 
         assertEq(extractedAddress, contributor);
     }
@@ -137,7 +137,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         address contributor = address(4);
 
         vm.prank(contributor);
-        raffle.mapGithubUsernameToAddress(username);
+        gitbounty.mapGithubUsernameToAddress(username);
         _;
     }
 
@@ -155,17 +155,17 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // Assign ETH to owner and call as owner
         vm.deal(account, 1 ether);
         vm.prank(account);
-        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+        gitbounty.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
 
         // Check funding recorded
         vm.prank(account);
-        uint256 contribution = raffle.getContribution();
+        uint256 contribution = gitbounty.getContribution();
         assertEq(contribution, fundAmount, "Contribution not recorded correctly");
 
         // Check criteria (requires you to add getters)
-        assertEq(raffle.getRepoOwner(), ownerName);
-        assertEq(raffle.getRepo(), repoName);
-        assertEq(raffle.getIssueNumber(), issueId);
+        assertEq(gitbounty.getRepoOwner(), ownerName);
+        assertEq(gitbounty.getRepo(), repoName);
+        assertEq(gitbounty.getIssueNumber(), issueId);
     }
 
     modifier createAndFundBounty() {
@@ -177,7 +177,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // Assign ETH to owner and call as owner
         vm.deal(account, 1 ether);
         vm.prank(account);
-        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+        gitbounty.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
         _;
     }
 
@@ -187,15 +187,15 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
 
         // Map a username and address
         vm.prank(account);
-        raffle.mapGithubUsernameToAddress("example_username");
+        gitbounty.mapGithubUsernameToAddress("example_username");
 
-        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        (bool upkeepNeeded, ) = gitbounty.checkUpkeep("");
         assertTrue(upkeepNeeded);
     }
 
     function testPerformUpkeepRevertsIfNotNeeded() public {
         vm.expectRevert();
-        raffle.performUpkeep("");
+        gitbounty.performUpkeep("");
     }
 
     function testSendRequestStoresRequestId() public {
@@ -203,9 +203,9 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         args[0] = "1";
 
         vm.prank(account);
-        bytes32 requestId = raffle.sendRequest(uint64(functionsSubscriptionId), args);
+        bytes32 requestId = gitbounty.sendRequest(uint64(functionsSubscriptionId), args);
 
-        assertEq(raffle.s_lastRequestId(), requestId);
+        assertEq(gitbounty.s_lastRequestId(), requestId);
     }
 
     function testCanRequestAndFulfill() public skipFork {
@@ -214,7 +214,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         address contributor = vm.addr(999999);
         vm.deal(contributor, 1 ether);
         vm.prank(contributor);
-        raffle.mapGithubUsernameToAddress(username);
+        gitbounty.mapGithubUsernameToAddress(username);
 
         // === Fund the Bounty ===
         string memory ownerName = "j-dabrowski";
@@ -224,14 +224,14 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         uint256 fundAmount = 0.2 ether;
         vm.deal(account, 1 ether);
         vm.prank(account);
-        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+        gitbounty.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
 
         // === Send Chainlink Functions Request ===
         string[] memory args = new string[](1);
         args[0] = username;
 
         vm.prank(account); // assuming account is onlyOwner
-        bytes32 requestId = raffle.sendRequest(
+        bytes32 requestId = gitbounty.sendRequest(
             uint64(functionsSubscriptionId),
             args
         );
@@ -248,7 +248,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         assertEq(balanceAfter, balanceBefore + fundAmount);
 
         // === Assertions ===
-        string memory decoded = string(raffle.getLastResponse());
+        string memory decoded = string(gitbounty.getLastResponse());
         assertEq(decoded, username);
     }
 
@@ -257,22 +257,22 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         vm.warp(block.timestamp + interval + 1);
 
         // Pre-check
-        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+        (bool upkeepNeeded, ) = gitbounty.checkUpkeep("");
         assertTrue(upkeepNeeded);
 
         // Act
         vm.prank(account); // account must be onlyOwner
-        raffle.performUpkeep("");
+        gitbounty.performUpkeep("");
 
         // Assert state was updated
-        assertEq(uint256(raffle.getRaffleState()), uint256(RaffleWithFunctions.RaffleState.CALCULATING));
+        assertEq(uint256(gitbounty.getgitbountyState()), uint256(Gitbounty.gitbountyState.CALCULATING));
 
         // Assert requestId is stored
-        assertTrue(raffle.s_lastRequestId() != bytes32(0));
+        assertTrue(gitbounty.s_lastRequestId() != bytes32(0));
     }
 
     function testAccountIsOwner() public {
-        assertEq(raffle.owner(), account); // Only works if your contract uses ConfirmedOwner
+        assertEq(gitbounty.owner(), account); // Only works if your contract uses ConfirmedOwner
     }
 
     function testDeleteAndRefundBounty() public {
@@ -286,16 +286,16 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         vm.deal(funder2, contribution2);
 
         vm.startPrank(funder1);
-        raffle.fundBounty{value: contribution1}();
+        gitbounty.fundBounty{value: contribution1}();
         vm.stopPrank();
 
         vm.startPrank(funder2);
-        raffle.fundBounty{value: contribution2}();
+        gitbounty.fundBounty{value: contribution2}();
         vm.stopPrank();
 
         // Set bounty criteria
         vm.prank(account);
-        raffle.setBountyCriteria("owner", "repo", "42");
+        gitbounty.setBountyCriteria("owner", "repo", "42");
 
         // Snapshot balances before refund
         uint256 beforeBalance1 = funder1.balance;
@@ -303,7 +303,7 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
 
         // Act - owner deletes bounty and refunds
         vm.prank(account);
-        raffle.deleteAndRefundBounty();
+        gitbounty.deleteAndRefundBounty();
 
         // Assert refunded
         uint256 afterBalance1 = funder1.balance;
@@ -313,11 +313,11 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         assertEq(afterBalance2, beforeBalance2 + contribution2, "Funder2 not refunded correctly");
 
         // Assert reset state
-        assertEq(raffle.getFunderCount(), 0);
-        assertEq(raffle.getBalance(), 0);
-        assertEq(raffle.getRepo(), "");
-        assertEq(raffle.getRepoOwner(), "");
-        assertEq(raffle.getIssueNumber(), "");
+        assertEq(gitbounty.getFunderCount(), 0);
+        assertEq(gitbounty.getBalance(), 0);
+        assertEq(gitbounty.getRepo(), "");
+        assertEq(gitbounty.getRepoOwner(), "");
+        assertEq(gitbounty.getIssueNumber(), "");
     }
 
     function testResetContractClearsAllState() public skipFork {
@@ -332,11 +332,11 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         // Fund the bounty
         vm.deal(account, 1 ether);
         vm.prank(account);
-        raffle.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
+        gitbounty.createAndFundBounty{value: fundAmount}(ownerName, repoName, issueId);
 
         // Map username to contributor
         vm.prank(contributor);
-        raffle.mapGithubUsernameToAddress(username);
+        gitbounty.mapGithubUsernameToAddress(username);
 
         // Simulate Chainlink fulfillment
         bytes memory response = bytes(username);
@@ -347,38 +347,38 @@ contract RaffleWithFunctionsTest is CodeConstants, Test {
         args[0] = username;
 
         vm.prank(account); // must be onlyOwner
-        bytes32 requestId = raffle.sendRequest(functionsSubscriptionId, args);
+        bytes32 requestId = gitbounty.sendRequest(functionsSubscriptionId, args);
 
         // Fulfill with actual request ID
         vm.prank(functionsOracle);
-        raffle.handleOracleFulfillment(requestId, response, err);
+        gitbounty.handleOracleFulfillment(requestId, response, err);
 
         // Reset the contract
         vm.prank(account);
-        raffle.resetContract();
+        gitbounty.resetContract();
 
         // === Assertions ===
 
         // State: Contributions
-        assertEq(raffle.getFunderCount(), 0);
-        assertEq(raffle.getContribution(), 0);
-        assertEq(raffle.getBalance(), 0);
+        assertEq(gitbounty.getFunderCount(), 0);
+        assertEq(gitbounty.getContribution(), 0);
+        assertEq(gitbounty.getBalance(), 0);
 
         // State: Username mapping
-        assertEq(raffle.getAddressFromUsername(username), address(0));
+        assertEq(gitbounty.getAddressFromUsername(username), address(0));
 
         // State: Bounty metadata
-        assertEq(raffle.getRepoOwner(), "");
-        assertEq(raffle.getRepo(), "");
-        assertEq(raffle.getIssueNumber(), "");
+        assertEq(gitbounty.getRepoOwner(), "");
+        assertEq(gitbounty.getRepo(), "");
+        assertEq(gitbounty.getIssueNumber(), "");
 
         // State: Winner/result
-        assertEq(raffle.lastWinnerUser(), "");
-        assertEq(raffle.getLastResponse().length, 0);
-        assertEq(raffle.last_BountyAmount(), 0);
+        assertEq(gitbounty.lastWinnerUser(), "");
+        assertEq(gitbounty.getLastResponse().length, 0);
+        assertEq(gitbounty.last_BountyAmount(), 0);
 
         // State: Enum
-        assertEq(uint(raffle.getRaffleState()), uint(RaffleWithFunctions.RaffleState.BASE));
+        assertEq(uint(gitbounty.getgitbountyState()), uint(Gitbounty.gitbountyState.BASE));
     }
 
 

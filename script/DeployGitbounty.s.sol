@@ -2,17 +2,17 @@
 pragma solidity ^0.8.19;
 
 import {Script} from "forge-std/Script.sol";
-import {RaffleWithFunctions} from "../src/RaffleWithFunctions.sol";
+import {Gitbounty} from "../src/Gitbounty.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";  // Adjust path if needed
 import {CreateSubscription, FundSubscription, AddConsumer} from "script/Interactions.s.sol";
 import {MockFunctionsOracle} from "test/mocks/MockFunctionsOracle.sol";
 
-contract DeployRaffleWithFunctions is Script {
+contract DeployGitbounty is Script {
     function run() public {
         deployContract();
     }
 
-    function deployContract() public returns (RaffleWithFunctions, HelperConfig) {
+    function deployContract() public returns (Gitbounty, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
         // local -> deploy mocks, get local config
         // sepolia -> get sepolia config
@@ -35,21 +35,21 @@ contract DeployRaffleWithFunctions is Script {
         // then pass encrypted secret to the new contract constructor
 
         vm.startBroadcast(config.account);
-        RaffleWithFunctions raffle = new RaffleWithFunctions(
+        Gitbounty gitbounty = new Gitbounty(
             config.interval,
             config.functionsOracle,
             config.donID,
             config.functionsSubscriptionId,
-            config.encryptedSecretsUrls,
-            script
+            script,
+            config.encryptedSecretsUrls
         );
         vm.stopBroadcast();
 
         AddConsumer addConsumer = new AddConsumer();
         // don't need to broadcast this here, because we broadcast inside the consumer contract 'addConsumer'
-        addConsumer.addConsumer(address(raffle), config.vrfCoordinator, config.subscriptionId, config.account);
+        addConsumer.addConsumer(address(gitbounty), config.vrfCoordinator, config.subscriptionId, config.account);
 
-        return (raffle, helperConfig);
+        return (gitbounty, helperConfig);
     }
 
 }

@@ -44,7 +44,7 @@ endif
 
 # make deploy ARGS="--network sepolia"
 deploy:
-	@forge script script/DeployRaffleWithFunctions.s.sol:DeployRaffleWithFunctions $(NETWORK_ARGS)
+	@forge script script/DeployGitbounty.s.sol:DeployGitbounty $(NETWORK_ARGS)
 
 # Add CONTRACT_ADDRESS to .env or run like: make verify CONTRACT_ADDRESS=0xYourContractAddress
 ### NOTE: this verification command does not work - because of the chainlink contract imports like:

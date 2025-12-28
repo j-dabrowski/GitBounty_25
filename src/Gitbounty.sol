@@ -1,24 +1,3 @@
-// Layout of Contract:
-// version
-// imports
-// errors
-// interfaces, libraries, contracts
-// Type declarations
-// State variables
-// Events
-// Modifiers
-// Functions
-
-// Layout of Functions:
-// constructor
-// receive function (if exists)
-// fallback function (if exists)
-// external
-// public
-// internal
-// private
-// view & pure functions
-
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
@@ -28,10 +7,10 @@ import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 
 
 /**
- * @title RaffleWithFunctions
+ * @title Gitbounty
  * @notice Extends the Raffle contract to include Chainlink Functions for external approval before winner selection.
  */
-contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
+contract Gitbounty is FunctionsClient, ConfirmedOwner {
     using FunctionsRequest for FunctionsRequest.Request;
 
     /* Errors */
@@ -111,8 +90,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         address _functionsOracle,
         bytes32 _donID,
         uint64 _functionsSubId,
-        bytes memory _encryptedSecretsUrls,
-        string memory sourceCode
+        string memory _sourceCode,
+        bytes memory _encryptedSecretsUrls
     )
         FunctionsClient(_functionsOracle)
         ConfirmedOwner(msg.sender)
@@ -123,8 +102,8 @@ contract RaffleWithFunctions is FunctionsClient, ConfirmedOwner {
         router = _functionsOracle;
         donID = _donID;
         functionsSubId = _functionsSubId;
+        source = _sourceCode;
         encryptedSecretsUrls = _encryptedSecretsUrls;
-        source = sourceCode;
     }
 
     function setBountyCriteria(
