@@ -149,6 +149,8 @@ simulate_request.js
 Make and deploy the project:
 $ make deploy ARGS="--network sepolia"
 
+Get the deployed contract address and add it as a consumer of Chainlink Fucntions: https://functions.chain.link/sepolia/____
+
 ### Design
 
 #### offchain/
