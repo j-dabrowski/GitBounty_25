@@ -85,6 +85,23 @@ By clearly defining the trust boundaries and where discretion enters the process
 
 ### Usage
 
+Chainlink Functions
+
+- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
+- Get the subscription ID and set it in HelperConfig.s.sol
+
+Chainlink Automation
+
+- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
+- Get the subscription ID and set it in HelperConfig.s.sol
+
+Update dependencies:
+$ git submodule update --init --recursive
+
+Build:
+$ forge clean
+$ forge build
+
 Navigate to offchain/
 $ cd offchain
 
@@ -128,6 +145,9 @@ encrypt_secrets_url.js
 simulate_request.js
 
 - Tests the Chainlink Functions request to GitHub API
+
+Make and deploy the project:
+$ make deploy ARGS="--network sepolia"
 
 ### Design
 

@@ -265,7 +265,7 @@ contract GitbountyTest is CodeConstants, Test {
         gitbounty.performUpkeep("");
 
         // Assert state was updated
-        assertEq(uint256(gitbounty.getgitbountyState()), uint256(Gitbounty.gitbountyState.CALCULATING));
+        assertEq(uint256(gitbounty.getGitbountyState()), uint256(Gitbounty.GitbountyState.CALCULATING));
 
         // Assert requestId is stored
         assertTrue(gitbounty.s_lastRequestId() != bytes32(0));
@@ -378,7 +378,7 @@ contract GitbountyTest is CodeConstants, Test {
         assertEq(gitbounty.last_BountyAmount(), 0);
 
         // State: Enum
-        assertEq(uint(gitbounty.getgitbountyState()), uint(Gitbounty.gitbountyState.BASE));
+        assertEq(uint(gitbounty.getGitbountyState()), uint(Gitbounty.GitbountyState.BASE));
     }
 
 

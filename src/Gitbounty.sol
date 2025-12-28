@@ -14,17 +14,17 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
     using FunctionsRequest for FunctionsRequest.Request;
 
     /* Errors */
-    error Raffle__SendNonZeroEth();
-    error Raffle__NoFundToWithdraw();
-    error Raffle__NoAddressMappedToUsername(string username);
+    error Gitbounty__SendNonZeroEth();
+    error Gitbounty__NoFundToWithdraw();
+    error Gitbounty__NoAddressMappedToUsername(string username);
     error UnexpectedRequestID(bytes32 requestId);
-    // Raffle errors below
-    error Raffle__TransferFailed();
-    error Raffle__RaffleNotOpen();
-    error Raffle__UpkeepNotNeeded(uint256 balance, uint256 numberOfFunders, uint256 raffleState);
+    // Gitbounty errors below
+    error Gitbounty__TransferFailed();
+    error Gitbounty__NotOpen();
+    error Gitbounty__UpkeepNotNeeded(uint256 balance, uint256 numberOfFunders, uint256 gitbountyState);
 
     /* type declarations */
-    enum RaffleState {
+    enum GitbountyState {
         BASE,
         EMPTY,
         READY,
@@ -59,7 +59,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
     string private issueNumber;
     // @dev duration of the interval in seconds
     uint256 private immutable i_interval;
-    RaffleState private s_raffleState; // start as open
+    GitbountyState private s_gitbountyState; // start as open
     // Other
     address router;
     bytes32 donID;
@@ -97,7 +97,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         ConfirmedOwner(msg.sender)
     {
         s_lastTimeStamp = block.timestamp;
-        s_raffleState = RaffleState.BASE;
+        s_gitbountyState = GitbountyState.BASE;
         i_interval = _interval;
         router = _functionsOracle;
         donID = _donID;
@@ -118,7 +118,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
 
     function _fundBounty(address sender, uint256 amount) internal {
         if (amount == 0) {
-            revert Raffle__SendNonZeroEth();
+            revert Gitbounty__SendNonZeroEth();
         }
 
         if (s_contributions[sender] == 0) {
@@ -139,7 +139,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
     function withdrawBountyFund() external {
         uint256 amount = s_contributions[msg.sender];
         if (amount == 0) {
-            revert Raffle__NoFundToWithdraw(); // Define this error
+            revert Gitbounty__NoFundToWithdraw(); // Define this error
         }
 
         s_contributions[msg.sender] = 0;
@@ -148,7 +148,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
 
         (bool success, ) = msg.sender.call{value: amount}("");
         if (!success) {
-            revert Raffle__TransferFailed();
+            revert Gitbounty__TransferFailed();
         }
         
         emit BountyFundWithdrawn(msg.sender, amount);
@@ -162,7 +162,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
             if (amount > 0) {
                 s_contributions[funder] = 0;
                 (bool success, ) = funder.call{value: amount}("");
-                if (!success) revert Raffle__TransferFailed();
+                if (!success) revert Gitbounty__TransferFailed();
                 emit BountyFundWithdrawn(funder, amount);
             }
         }
@@ -172,8 +172,8 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         repo_owner = "";
         repo = "";
         issueNumber = "";
-        // Set raffle state to OPEN (or CALCULATING if appropriate)
-        s_raffleState = RaffleState.EMPTY;
+        // Set gitbounty state to OPEN (or CALCULATING if appropriate)
+        s_gitbountyState = GitbountyState.EMPTY;
     }
 
     function createAndFundBounty(
@@ -183,7 +183,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
     ) external payable onlyOwner {
         setBountyCriteria(_owner, _repo, _issue);
         _fundBounty(msg.sender, msg.value);
-        s_raffleState = RaffleState.READY;
+        s_gitbountyState = GitbountyState.READY;
     }
 
     function mapGithubUsernameToAddress(string calldata username) external {
@@ -228,7 +228,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         s_lastTimeStamp = block.timestamp;
 
         // Reset state
-        s_raffleState = RaffleState.BASE;
+        s_gitbountyState = GitbountyState.BASE;
     }
 
 
@@ -241,7 +241,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         returns (bool upkeepNeeded, bytes memory /* performData */ )
     {
         bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) >= i_interval);
-        bool isReady = s_raffleState == RaffleState.READY;
+        bool isReady = s_gitbountyState == GitbountyState.READY;
         bool hasBalance = address(this).balance > 0;
         bool hasFunders = s_funderCount > 0;
         bool hasBountyCriteria = bytes(repo_owner).length > 0 && bytes(repo).length > 0 && bytes(issueNumber).length > 0;
@@ -255,9 +255,9 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         // check if enough time has passed
         (bool upkeepNeeded, ) = checkUpkeep("");
         if (!upkeepNeeded) {
-            revert Raffle__UpkeepNotNeeded(address(this).balance, s_funderCount, uint256(s_raffleState));
+            revert Gitbounty__UpkeepNotNeeded(address(this).balance, s_funderCount, uint256(s_gitbountyState));
         }
-        s_raffleState = RaffleState.CALCULATING;
+        s_gitbountyState = GitbountyState.CALCULATING;
         s_lastTimeStamp = block.timestamp;
         
         // === Prepare Request Arguments ===
@@ -286,8 +286,8 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
     }
 
     /** Getter Functions */
-    function getRaffleState() external view returns(RaffleState) {
-        return s_raffleState;
+    function getGitbountyState() external view returns(GitbountyState) {
+        return s_gitbountyState;
     }
 
     function getLastTimeStamp() external view returns (uint256) {
@@ -414,7 +414,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
             keccak256(bytes(result)) == keccak256("not_found")
         ) {
             // No state changes — soft fail
-            s_raffleState = RaffleState.READY;
+            s_gitbountyState = GitbountyState.READY;
             emit Response(requestId, response, err); // log anyway
             return;
         }
@@ -424,7 +424,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
 
         // Soft-fail if unmapped
         if (winner == address(0)) {
-            s_raffleState = RaffleState.READY;
+            s_gitbountyState = GitbountyState.READY;
             emit Response(requestId, response, err); // log anyway
             return;
         }
@@ -434,7 +434,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
 
         // Send payout
         (bool success, ) = winner.call{value: amount}("");
-        if (!success) revert Raffle__TransferFailed();
+        if (!success) revert Gitbounty__TransferFailed();
 
         s_lastWinner = winner;
         lastWinnerUser = result;
@@ -451,7 +451,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         _resetContributions();
 
         // Update state
-        s_raffleState = RaffleState.PAID;
+        s_gitbountyState = GitbountyState.PAID;
 
         emit BountyClaimed(winner, amount);
         emit Response(requestId, response, err);
