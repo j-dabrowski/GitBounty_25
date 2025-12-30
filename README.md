@@ -146,10 +146,31 @@ simulate_request.js
 
 - Tests the Chainlink Functions request to GitHub API
 
-Make and deploy the project:
+Set up .env local variables for the makefile:
+SEPOLIA_RPC_URL=
+MAINNET_RPC_URL=
+ETHERSCAN_API_KEY=
+PRIVATE_KEY=
+CONTRACT_ADDRESS= <you can add this after deploying a contract and copying its address>
+
+Deploy the project:
 $ make deploy ARGS="--network sepolia"
 
-Get the deployed contract address and add it as a consumer of Chainlink Fucntions: https://functions.chain.link/sepolia/____
+Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
+
+Set the deployed contract address as a .env local variable
+CONTRACT_ADDRESS=**\_\_\_\_**
+Then refresh the terminal session's local variables from .env:
+$ source .env
+
+Map a username/address in the deployed contract:
+$ make mapGithubUsername
+
+Create and fund a bounty:
+$ make createAndFundBounty
+
+Manually call Functions request and payment:
+$ make performUpkeep
 
 ### Design
 

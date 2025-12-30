@@ -4,6 +4,13 @@
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
+CONTRACT_ADDRESS ?= 
+FUNCTIONS_SUB_ID ?= 5708
+GITHUB_OWNER ?= j-dabrowski
+GITHUB_REPO ?= Test_Repo_2025
+GITHUB_ISSUE ?= 2
+BOUNTY_VALUE ?= 0.001ether
+
 help:
 	@echo "Usage:"
 	@echo "  make deploy [ARGS=...]\n    example: make deploy ARGS=\"--network sepolia\""
@@ -74,7 +81,7 @@ verifyWithConstructor:
 sendRequestScript:
 	@cast send $(CONTRACT_ADDRESS) \
 		"sendRequestWithSource(uint64,string,string[])" \
-		5133 "$$(cat script.js)" '[]' \
+		$(FUNCTIONS_SUB_ID) "$$(cat script.js)" '[]' \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--private-key $(PRIVATE_KEY) \
 		--gas-limit 1000000
@@ -82,14 +89,14 @@ sendRequestScript:
 sendRequestScriptAndArgs:
 	@cast send $(CONTRACT_ADDRESS) \
 		"sendRequestWithSource(uint64,string,string[])" \
-		5133 "$$(cat script.js)" '["j-dabrowski", "Test_Repo_2025", "2"]' \
+		$(FUNCTIONS_SUB_ID) "$$(cat script.js)" '["$(GITHUB_OWNER)", "$(GITHUB_REPO)", "$(GITHUB_ISSUE)"]' \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--private-key $(PRIVATE_KEY) \
 		--gas-limit 1000000
 
 mapGithubUsername:
 	@cast send $(CONTRACT_ADDRESS) \
-	 "mapGithubUsernameToAddress(string)" "j-dabrowski" \
+	 "mapGithubUsernameToAddress(string)" $(GITHUB_OWNER) \
 		--private-key $(PRIVATE_KEY) \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--gas-limit 1000000
@@ -105,8 +112,8 @@ mapGithubUsernameCustom:
 createAndFundBounty:
 	@cast send $(CONTRACT_ADDRESS) \
 	"createAndFundBounty(string,string,string)" \
-		"j-dabrowski" "Test_Repo_2025" "100" \
-		--value "0.0001ether" \
+		$(GITHUB_OWNER) $(GITHUB_REPO) $(GITHUB_ISSUE) \
+		--value $(BOUNTY_VALUE) \
 		--private-key $(PRIVATE_KEY) \
 		--rpc-url $(SEPOLIA_RPC_URL) \
 		--gas-limit 1000000
