@@ -374,3 +374,28 @@ check if correct values returned by script
   offchain-secrets.json: upload this to an amazon web bucket via online instructions
   $ node examples/7-use-secrets-url/request_gitbounty.js
 - run this, and it will simulate your request, then actually make the request.
+
+#### To do
+
+Mapping identity is wide open → easy to “steal” a username mapping
+mapGithubUsernameToAddress(string username) is open and permanently maps a username to the first caller.
+That means anyone can front-run or preemptively map "some-winner" to their address before the real contributor maps it. Your “winner” is whatever the oracle returns (GitHub username), so if someone squats that username mapping, they get paid.
+GitHub challenge (best for GitBounty):
+User signs an EIP-191 message with their wallet.
+They publish the signature (or a nonce) in a GitHub comment / gist / profile field.
+Your Functions script verifies that the signature appears in GitHub under that username, and returns the wallet address directly (or returns username+signature that your contract verifies).
+Then you don’t need open mapping at all.
+
+Reentrancy surfaces (payout + refunds)
+You do external ETH sends in three places:
+withdrawBountyFund() → msg.sender.call{value: amount}("")
+deleteAndRefundBounty() → loop of funder.call{value: amount}("")
+fulfillRequest() payout → winner.call{value: amount}("")
+You’re mostly doing Checks-Effects-Interactions (you zero contribution before the call; you clear/transition state before request, etc.). But you still have a few hazards:
+deleteAndRefundBounty() is looping through funders and calling out; if any funder is a contract with a reverting fallback, the whole refund reverts → owner can get “stuck” unable to delete/refund.
+Reentrancy into other functions is possible during payout/refunds (especially because mapGithubUsernameToAddress and fundBounty are open).
+Fix pattern (strongly recommended):
+Add a simple reentrancy guard (nonReentrant) to the three ETH-sending functions.
+Move to a pull-payments model for mass refunds: record refundable balances and let users withdraw individually (no looped calls).
+Minimal change: import OpenZeppelin ReentrancyGuard and add nonReentrant.
+Better change: remove the for-loop refund and expose withdrawBountyFund() + ownerCancel() which only resets criteria and leaves withdrawals to users.
