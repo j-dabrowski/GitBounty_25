@@ -399,3 +399,7 @@ Add a simple reentrancy guard (nonReentrant) to the three ETH-sending functions.
 Move to a pull-payments model for mass refunds: record refundable balances and let users withdraw individually (no looped calls).
 Minimal change: import OpenZeppelin ReentrancyGuard and add nonReentrant.
 Better change: remove the for-loop refund and expose withdrawBountyFund() + ownerCancel() which only resets criteria and leaves withdrawals to users.
+
+Theory:
+
+- Your PR approver list is a multisig for releasing bounty funds

@@ -15,9 +15,9 @@ const owner = args[0];
 const repo = args[1];
 const issueNumber = args[2];
 
-// Load GitHub token from remote secrets (Amazon S3-secured JSON, e.g. { "githubToken": "ghp_..." })
+// Load GitHub token from remote secrets (Amazon S3-secured JSON, e.g. { "apiToken": "ghp_..." })
 if (!secrets.apiKey) {
-  throw Error("Missing secret: githubToken");
+  throw Error("Missing secret: apiToken");
 }
 const githubToken = secrets.apiKey;
 
