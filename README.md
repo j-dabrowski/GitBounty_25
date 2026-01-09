@@ -234,6 +234,30 @@ GitHub API
 ↓
 fulfillRequest()
 
+.env
+↓
+gen_offchain_secrets.js
+↓
+offchain-secrets.json (encrypted)
+↓
+encrypt_secrets_url.js
+↓
+encrypted-secrets-urls.network.json
+↓
+HelperConfig.s.sol
+↓
+DeployGitbountyFactory.s.sol
+↓
+GitbountyFactory.sol
+↓
+Gitbounty.sol
+↓
+Chainlink DON
+↓
+GitHub API
+↓
+fulfillRequest()
+
 Env-enc reference:
 
 npx env-enc set-pw
@@ -376,6 +400,15 @@ check if correct values returned by script
 - run this, and it will simulate your request, then actually make the request.
 
 #### To do
+
+- Add create child gitbounty function in factory
+- Update helperconfig
+- Update Deploy script
+- Make foundry tests of factory and child
+- Make new makefile
+- Make UI tracking of events and arrays, variables, bounty reward sending visualisation
+- Make UI statistics about bounty variables
+- Make UI to create and interact with bounties and watch their information live
 
 Mapping identity is wide open → easy to “steal” a username mapping
 mapGithubUsernameToAddress(string username) is open and permanently maps a username to the first caller.

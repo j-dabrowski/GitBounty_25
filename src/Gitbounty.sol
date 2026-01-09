@@ -65,6 +65,8 @@ contract Gitbounty is ConfirmedOwner {
     // Funding
     mapping(address => uint256) private s_contributions;
     address[] private funders;
+    mapping(address => bool) private s_inFundersList;
+
     uint256 private s_totalFunding;
     uint256 private s_funderCount;
 
@@ -166,12 +168,21 @@ contract Gitbounty is ConfirmedOwner {
     function _fundBounty(address sender, uint256 amount) internal {
         if (amount == 0) revert Gitbounty__SendNonZeroEth();
 
-        if (s_contributions[sender] == 0) {
+        uint256 prev = s_contributions[sender];
+        uint256 next = prev + amount;
+
+        // Track active funders count (contributors with >0 balance)
+        if (prev == 0) {
             s_funderCount++;
+        }
+
+        // Track membership so we only push once per "cycle"
+        if (!s_inFundersList[sender]) {
+            s_inFundersList[sender] = true;
             funders.push(sender);
         }
 
-        s_contributions[sender] += amount;
+        s_contributions[sender] = next;
         s_totalFunding += amount;
 
         emit BountyFunded(sender, amount);
@@ -184,39 +195,66 @@ contract Gitbounty is ConfirmedOwner {
     }
 
     function withdrawBountyFund() external {
-        uint256 amount = s_contributions[msg.sender];
-        if (amount == 0) revert Gitbounty__NoFundToWithdraw();
+        uint256 prev = s_contributions[msg.sender];
+        if (prev == 0) revert Gitbounty__NoFundToWithdraw();
 
         // Effects
         s_contributions[msg.sender] = 0;
-        s_totalFunding -= amount;
+        s_totalFunding -= prev;
+
+        // Only decrement when we *actually* went >0 -> 0
         s_funderCount--;
 
         // Interaction
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success, ) = msg.sender.call{value: prev}("");
         if (!success) revert Gitbounty__TransferFailed();
 
-        emit BountyFundWithdrawn(msg.sender, amount);
+        emit BountyFundWithdrawn(msg.sender, prev);
+    }
+
+    function withdrawPartialBountyFund(uint256 amount) external {
+        uint256 prev = s_contributions[msg.sender];
+        require(amount > 0 && amount <= prev, "bad amount");
+
+        uint256 next = prev - amount;
+        s_contributions[msg.sender] = next;
+        s_totalFunding -= amount;
+
+        if (next == 0) s_funderCount--; // only on >0 -> 0
+
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) revert Gitbounty__TransferFailed();
+    }
+
+    function refundAllFunders() external onlyOwner {
+        _refundAllFunders();
     }
 
     function _refundAllFunders() internal {
         for (uint256 i = 0; i < funders.length; i++) {
             address funder = funders[i];
             uint256 amount = s_contributions[funder];
+            
             if (amount > 0) {
                 s_contributions[funder] = 0;
+
                 (bool success, ) = funder.call{value: amount}("");
                 if (!success) revert Gitbounty__TransferFailed();
+
                 emit BountyFundWithdrawn(funder, amount);
             }
         }
+
         _resetContributions();
     }
 
     function _resetContributions() internal {
         for (uint256 i = 0; i < funders.length; i++) {
-            s_contributions[funders[i]] = 0;
+            address funder = funders[i];
+            s_contributions[funder] = 0;
+            s_inFundersList[funder] = false; // allow fresh membership next cycle
         }
+
         delete funders;
         s_totalFunding = 0;
         s_funderCount = 0;

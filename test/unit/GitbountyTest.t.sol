@@ -383,12 +383,11 @@ contract GitbountyTest is CodeConstants, Test {
 
 
 function testPrintEncodedCBOR() public {
-    string memory source = "return Functions.encodeString(\"j-dabrowski\");";
+    string memory source_temp = "return Functions.encodeString(\"j-dabrowski\");";
 
     FunctionsRequest.Request memory req;
 
-    req._initializeRequestForInlineJavaScript(source);
-
+    req._initializeRequestForInlineJavaScript(source_temp);
 
     bytes memory cborPayload = req._encodeCBOR();
 
