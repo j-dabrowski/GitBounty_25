@@ -17,6 +17,7 @@ pragma solidity 0.8.19;
 import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {Gitbounty} from "./Gitbounty.sol";
 
 // Chainlink Automation interface (a.k.a. Keepers)
 import {AutomationCompatibleInterface} from
@@ -110,6 +111,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
+    event BountyDeployed(address indexed bounty, address indexed bountyOwner);
     event BountyRegistered(address indexed bounty);
     event BountyClosed(address indexed bounty);
     event BountyOpened(address indexed bounty);
@@ -154,11 +156,14 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
                           ADMIN: REGISTER / OPEN / CLOSE
     //////////////////////////////////////////////////////////////*/
     function registerBounty(address bounty) external onlyOwner {
+        _registerBounty(bounty);
+    }
+
+    function _registerBounty(address bounty) internal {
         if (bounty == address(0)) revert InvalidBounty(bounty);
         if (isRegistered[bounty]) return;
 
-        // optional sanity check: does it look like a child?
-        // will revert if functions not present
+        // sanity check: does it look like a child?
         IGitbountyChild(bounty).getArgs();
 
         isRegistered[bounty] = true;
@@ -166,11 +171,25 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
 
         // start open by default
         isOpen[bounty] = true;
-        nextAttemptAt[bounty] = block.timestamp; // eligible immediately (but you can set +retryInterval)
+        nextAttemptAt[bounty] = block.timestamp;
         inFlight[bounty] = false;
 
         emit BountyRegistered(bounty);
         emit BountyOpened(bounty);
+    }
+
+    function createBounty() external returns (address bountyAddr) {
+        // Factory deploys the bounty, so factory is initial owner
+        Gitbounty bounty = new Gitbounty(address(this));
+
+        // Hand ownership to the user who requested it
+        bounty.transferOwnership(msg.sender);
+
+        // Register it in the factory registry
+        _registerBounty(address(bounty));
+
+        emit BountyDeployed(address(bounty), msg.sender);
+        return address(bounty);
     }
 
     /// @notice Owner can mark a bounty closed to stop retries (child can also call this if you want).
