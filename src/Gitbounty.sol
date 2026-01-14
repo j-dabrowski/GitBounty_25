@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-
 /**
  * Gitbounty (Factory-compatible)
  * - NO FunctionsClient / NO Automation interface in the child
@@ -21,17 +19,19 @@ interface IGitbountyFactory {
     function closeBounty(address bounty) external;
 }
 
-contract Gitbounty is ConfirmedOwner {
+contract Gitbounty {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
+    error Gitbounty__AlreadyInitialized();
     error Gitbounty__SendNonZeroEth();
     error Gitbounty__NoFundToWithdraw();
     error Gitbounty__TransferFailed();
     error Gitbounty__NotOpen();
     error Gitbounty__CriteriaNotSet();
     error Gitbounty__OnlyFactory();
-    error UnexpectedRequestID(bytes32 requestId);
+    error Gitbounty__NotOwner();
+    error Gitbounty__UnexpectedRequestID(bytes32 requestId);
 
     /*//////////////////////////////////////////////////////////////
                                 TYPES
@@ -45,9 +45,24 @@ contract Gitbounty is ConfirmedOwner {
     }
 
     /*//////////////////////////////////////////////////////////////
+                                MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Gitbounty__NotOwner();
+        _;
+    }
+
+    modifier onlyFactory() {
+        if (msg.sender != factory) revert Gitbounty__OnlyFactory();
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 STATE
     //////////////////////////////////////////////////////////////*/
-    address public immutable factory;
+    address public owner;
+    address public factory;
+    bool private initialized;
 
     // Factory/Functions bookkeeping
     bytes32 public s_lastRequestId;
@@ -87,13 +102,34 @@ contract Gitbounty is ConfirmedOwner {
     event Response(bytes32 indexed requestId, bytes response, bytes err);
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                                INIT
     //////////////////////////////////////////////////////////////*/
-    constructor(address _factory) ConfirmedOwner(msg.sender) {
-        require(_factory != address(0), "factory required");
-        factory = _factory;
+    /// @notice Called once by the factory right after cloning
+    function initialise(
+        address _owner,
+        string calldata _repoOwner,
+        string calldata _repo,
+        string calldata _issueNumber
+    ) external payable {
+        if (initialized) revert Gitbounty__AlreadyInitialized();
+        if (msg.value == 0) revert Gitbounty__SendNonZeroEth();
 
-        s_gitbountyState = GitbountyState.BASE;
+        // bind factory forever
+        factory = msg.sender;
+
+        // set ownership + criteria
+        owner = _owner;
+        repo_owner = _repoOwner;
+        repo = _repo;
+        issueNumber = _issueNumber;
+
+        // treat init ETH as first funding contribution from the owner
+        _fundBounty(_owner, msg.value);
+
+        // now it’s eligible for factory retries
+        s_gitbountyState = GitbountyState.READY;
+
+        initialized = true;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -267,15 +303,15 @@ contract Gitbounty is ConfirmedOwner {
     /// @notice Factory calls this before making the Functions request (or right after) to record request id and mark state.
     /// The provided factory contract already sets inFlight and schedules; we only mark local CALCULATING.
     /// @dev Not strictly required, but keeps your state machine clear.
-    function markCalculating(bytes32 requestId) external {
+    function markCalculating(bytes32 requestId) external onlyFactory {
         if (msg.sender != factory) revert Gitbounty__OnlyFactory();
         s_gitbountyState = GitbountyState.CALCULATING;
         s_lastRequestId = requestId;
     }
 
     /// @notice Factory reads args from this contract to build its Functions request.
-    function getArgs() external view returns (string memory repoOwner, string memory _repo, string memory _issueNumber) {
-        repoOwner = repo_owner;
+    function getArgs() external view returns (string memory _repo_owner, string memory _repo, string memory _issueNumber) {
+        _repo_owner = repo_owner;
         _repo = repo;
         _issueNumber = issueNumber;
     }
@@ -291,7 +327,7 @@ contract Gitbounty is ConfirmedOwner {
 
         // Strict request matching:
         if (s_lastRequestId != bytes32(0) && s_lastRequestId != requestId) {
-            revert UnexpectedRequestID(requestId);
+            revert Gitbounty__UnexpectedRequestID(requestId);
         }
 
         s_lastRequestId = requestId;

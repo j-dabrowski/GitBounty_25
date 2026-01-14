@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {GitbountyFactory} from "../src/GitbountyFactory.sol";
+import {Gitbounty} from "../src/Gitbounty.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract DeployGitbountyFactory is Script {
@@ -15,19 +16,23 @@ contract DeployGitbountyFactory is Script {
 
         vm.startBroadcast(config.account);
 
-        // NOTE: HelperConfig calls this functionsOracle, but GitbountyFactory expects the Functions ROUTER address.
-        // In your config, functionsOracle is currently used as the router address (MockFunctionsOracle locally, router on Sepolia).
+        // 1) Deploy the implementation once (EIP-1167 clones will point at this)
+        Gitbounty implementation = new Gitbounty();
+
+        // 2) Deploy the factory with implementation + Functions router (your config.functionsOracle is acting as router)
         factory = new GitbountyFactory(
-            config.functionsOracle,
+            address(implementation),
+            config.functionsRouter, // Functions ROUTER
             config.donID,
-            config.functionsSubscriptionId,
-            config.callbackGasLimit,
+            config.functionsSubscriptionId, // uint64
+            config.callbackGasLimit, // uint32
             source,
             config.encryptedSecretsUrls
         );
 
         vm.stopBroadcast();
 
+        console2.log("Gitbounty implementation deployed at:", address(implementation));
         console2.log("GitbountyFactory deployed at:", address(factory));
         console2.log("Deployer/account:", config.account);
         console2.logBytes32(config.donID);

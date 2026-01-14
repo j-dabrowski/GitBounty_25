@@ -17,17 +17,25 @@ pragma solidity 0.8.19;
 import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import {Gitbounty} from "./Gitbounty.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 // Chainlink Automation interface (a.k.a. Keepers)
 import {AutomationCompatibleInterface} from
     "@chainlink/contracts/src/v0.8/automation/interfaces/AutomationCompatibleInterface.sol";
 
 interface IGitbountyChild {
+    /// @notice Must be callable exactly once on a fresh clone
+    function initialise(
+        address _owner,
+        string calldata _repoOwner,
+        string calldata _repo,
+        string calldata _issueNumber
+    ) external payable;
+
     /// @notice Return repo args needed by Functions source
     function getArgs() external view returns (string memory repoOwner, string memory repo, string memory issueNumber);
 
-    // @notice Called by the factory on the child bounty to mark it as calculating (functions request in progress)
+    /// @notice Called by the factory on the child bounty to mark it as calculating (functions request in progress)
     function markCalculating(bytes32 requestId) external;
 
     /// @notice Called by factory when Functions fulfills.
@@ -59,6 +67,12 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     error InsufficientCredits(address bounty, uint256 needed, uint256 have);
     error GitbountyFactory__UsernameAlreadyMapped();
     error OnlySelf();
+    error GitbountyFactory__SendNonZeroEth();
+
+    /*//////////////////////////////////////////////////////////////
+                          CLONE / IMPLEMENTATION
+    //////////////////////////////////////////////////////////////*/
+    address public immutable implementation;
 
     /*//////////////////////////////////////////////////////////////
                              FUNCTIONS CONFIG
@@ -134,6 +148,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
     constructor(
+        address _implementation,
         address functionsRouter,
         bytes32 _donID,
         uint64 _subId,
@@ -141,6 +156,9 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         string memory _source,
         bytes memory _encryptedSecretsUrls
     ) FunctionsClient(functionsRouter) ConfirmedOwner(msg.sender) {
+        if (_implementation == address(0)) revert InvalidBounty(_implementation);
+        implementation = _implementation;
+
         donID = _donID;
         functionsSubId = _subId;
         callbackGasLimit = _callbackGasLimit;
@@ -178,18 +196,26 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         emit BountyOpened(bounty);
     }
 
-    function createBounty() external returns (address bountyAddr) {
-        // Factory deploys the bounty, so factory is initial owner
-        Gitbounty bounty = new Gitbounty(address(this));
+    /// @notice Clone + initialise a new bounty owned by msg.sender.
+    /// @dev Requires msg.value > 0
+    function createBounty(
+        string calldata _repoOwner,
+        string calldata _repo,
+        string calldata _issueNumber
+    ) external payable returns (address bountyAddr) {
+        if(msg.value == 0) revert GitbountyFactory__SendNonZeroEth();
 
-        // Hand ownership to the user who requested it
-        bounty.transferOwnership(msg.sender);
+        // 1) Clone (EIP-1167 minimal proxy)
+        address clone = Clones.clone(implementation);
 
-        // Register it in the factory registry
-        _registerBounty(address(bounty));
+        // 2) Initialise clone (factory is msg.sender inside initialise)
+        IGitbountyChild(clone).initialise{value: msg.value}(msg.sender, _repoOwner, _repo, _issueNumber);
 
-        emit BountyDeployed(address(bounty), msg.sender);
-        return address(bounty);
+        // 3) Register it in the factory registry
+        _registerBounty(clone);
+
+        emit BountyDeployed(clone, msg.sender);
+        return clone;
     }
 
     /// @notice Owner can mark a bounty closed to stop retries (child can also call this if you want).
