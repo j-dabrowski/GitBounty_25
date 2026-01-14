@@ -86,14 +86,14 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     /*//////////////////////////////////////////////////////////////
                               AUTOMATION CONFIG
     //////////////////////////////////////////////////////////////*/
-    uint256 public retryInterval = 1 days;
+    uint256 private retryInterval = 5 minutes; //1 days;
 
     // Bound scan work so upkeep doesn't run out of gas.
-    uint256 public maxScan = 50;
-    uint256 public maxPerform = 1;
+    uint256 private maxScan = 50;
+    uint256 private maxPerform = 1;
 
     // Round-robin scanning cursor
-    uint256 public scanIndex;
+    uint256 private scanIndex;
 
     /*//////////////////////////////////////////////////////////////
                           USERNAME - ADDRESS REGISTRY
@@ -105,16 +105,16 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
                            BOUNTY REGISTRY / STATE
     //////////////////////////////////////////////////////////////*/
     address[] public bounties;
-    mapping(address => bool) public isRegistered;
+    mapping(address => bool) private isRegistered;
 
     // Scheduling
-    mapping(address => bool) public isOpen;          // factory's view of open/closed
-    mapping(address => uint256) public nextAttemptAt;
+    mapping(address => bool) private isOpen; // factory's view of open/closed
+    mapping(address => uint256) private nextAttemptAt;
     mapping(address => bool) public inFlight;
 
     // Per-bounty credits (you can denominate in ETH/wei, or treat as "internal credits")
-    mapping(address => uint256) public creditsWei;
-    uint256 public attemptFeeWei = 0; // set to nonzero if you want users to prepay "retry budget"
+    mapping(address => uint256) private creditsWei;
+    uint256 private attemptFeeWei = 0; // set to nonzero if you want users to prepay "retry budget"
 
     /*//////////////////////////////////////////////////////////////
                                REQUEST ROUTING
@@ -129,19 +129,14 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     event BountyRegistered(address indexed bounty);
     event BountyClosed(address indexed bounty);
     event BountyOpened(address indexed bounty);
-
     event GithubUserMapped(string indexed username, address indexed userAddress);
-
     event CreditsDeposited(address indexed bounty, address indexed payer, uint256 amountWei);
     event AttemptFeeUpdated(uint256 newAttemptFeeWei);
-
     event FactoryConfigUpdated(bytes32 donID, uint64 subId, uint32 callbackGasLimit);
     event SourceUpdated();
     event SecretsUpdated();
-
     event RequestSent(bytes32 indexed requestId, address indexed bounty);
     event RequestForwarded(bytes32 indexed requestId, address indexed bounty);
-
     event UpkeepSelected(uint256 indexed at, address[] selected);
 
     /*//////////////////////////////////////////////////////////////

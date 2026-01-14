@@ -21,7 +21,7 @@ runs = 256
 
 optimizer = true
 optimizer_runs = 200
-via_ir = false
+via_ir = true
 
 # Allow deploy script to read file from file system
 ffi = true

@@ -20,6 +20,9 @@ RPC_AND_KEY := $$( [ "$(findstring --network sepolia,$(ARGS))" != "" ] && echo "
 	factoryPerformSingle factoryCheckUpkeep factoryMapUsername \
 	bountyCreateAndFund
 
+deployBountyImpl:
+	forge script script/DeployGitbountyImpl.s.sol:DeployGitbountyImpl $(NETWORK_ARGS)
+
 deployFactory:
 	forge script script/DeployGitbountyFactory.s.sol:DeployGitbountyFactory $(NETWORK_ARGS)
 
