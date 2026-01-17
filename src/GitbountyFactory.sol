@@ -133,6 +133,8 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     event RequestForwarded(bytes32 indexed requestId, address indexed bounty);
     event UpkeepSelected(uint256 indexed at, address[] selected);
 
+    event FunctionsRequestFailed(address indexed bounty, string reason, bytes lowLevelData);
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -298,15 +300,14 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     function eligibilityBreakdown(address bounty)
         external
         view
-        returns (bool registered, bool open, bool flight, bool timeOk, bool childReady, uint256 nextAt)
+        returns (bool registered, bool open, bool notInFlight, bool timeOk, bool childReady, uint256 nextAt)
     {
         registered = isRegistered[bounty];
         open = isOpen[bounty];
-        flight = inFlight[bounty];
-        nextAt = nextAttemptAt[bounty];
-
-        timeOk = block.timestamp >= nextAt;
+        notInFlight = !inFlight[bounty];
         childReady = IGitbountyChild(bounty).isBountyReady();
+        nextAt = nextAttemptAt[bounty];
+        timeOk = block.timestamp >= nextAt;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -383,8 +384,11 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
             bytes32 requestId;
             try this._sendFunctionsRequestExternal(args) returns (bytes32 rid) {
                 requestId = rid;
-            } catch {
-                // nothing committed yet, so just skip
+            } catch Error(string memory reason) {
+                emit FunctionsRequestFailed(bounty, reason, "");
+                continue;
+            } catch (bytes memory lowLevelData) {
+                emit FunctionsRequestFailed(bounty, "low-level", lowLevelData);
                 continue;
             }
 
