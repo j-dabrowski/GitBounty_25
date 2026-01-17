@@ -234,6 +234,30 @@ GitHub API
 ↓
 fulfillRequest()
 
+.env
+↓
+gen_offchain_secrets.js
+↓
+offchain-secrets.json (encrypted)
+↓
+encrypt_secrets_url.js
+↓
+encrypted-secrets-urls.network.json
+↓
+HelperConfig.s.sol
+↓
+DeployGitbountyFactory.s.sol
+↓
+GitbountyFactory.sol
+↓
+Gitbounty.sol
+↓
+Chainlink DON
+↓
+GitHub API
+↓
+fulfillRequest()
+
 Env-enc reference:
 
 npx env-enc set-pw
@@ -377,6 +401,53 @@ check if correct values returned by script
 
 #### To do
 
+- Make foundry tests of factory and child
+- Check if all variables that can be set/reset by creating or completing a bounty can be checked via getter. So we are able to test if everything gets reset.
+- Check how bounty behaves with certain arguments set and some not etc. Such as repo set, but not repo_owner, or bounty value = 0
+- implement User funding of Automation and Functions
+
+  - only attempt bounties that have prepaid credits and use those credits as your internal economic gate then you (as operator) fund the Automation upkeep + Functions sub globally (LINK) and you set your fees so that overall you don’t lose money
+
+- Add automation toggle helper to factory (to optionally turn off automation)
+
+- Live testnet test routines:
+
+  - Toggle off automation
+  - Deploy 1 bounty
+  - manually perform upkeep
+  - Check fulfilment / payment / variable reset
+
+  - Toggle off automation
+  - Set maxPerform to 3
+  - Deploy 3 identical bounties
+  - manually perform upkeep on the 3 bounties
+  - Check fulfilment / payment / variable reset
+
+  - Toggle off automation
+  - Set maxPerform to 2
+  - Deploy 3 different bounties (1 complete, 2 incomplete)
+  - get 2 'selected' bounties from checkUpKeep
+  - manually perform upkeep on the 2 selected bounties
+  - Check fulfilment / payment / variable reset (1 succeed, 1 fail)
+  - immediately after, get 1 'selected' bounties from checkUpKeep (the other 2 have not had enough time passed)
+  - manually perform upkeep on the 1 selected bounties
+  - Check fulfilment / payment / variable reset (1 fail)
+  - wait 5 min and complete the 2nd bounty in github
+  - get 2 'selected' bounties from checkUpKeep
+  - manually perform upkeep on the 2 selected bounties
+  - Check fulfilment / payment / variable reset (1 succeed, 1 fail)
+  - wait 5 min and complete the 3rd bounty in github
+  - get 1 'selected' bounties from checkUpKeep
+  - manually perform upkeep on the 1 selected bounties
+  - Check fulfilment / payment / variable reset (1 succeed)
+
+  - Leave on / Toggle on automation
+  - repeat above, but allow automation to run upkeeps
+
+- Make UI tracking of events and arrays, variables, bounty reward sending visualisation
+- Make UI statistics about bounty variables
+- Make UI to create and interact with bounties and watch their information live
+
 Mapping identity is wide open → easy to “steal” a username mapping
 mapGithubUsernameToAddress(string username) is open and permanently maps a username to the first caller.
 That means anyone can front-run or preemptively map "some-winner" to their address before the real contributor maps it. Your “winner” is whatever the oracle returns (GitHub username), so if someone squats that username mapping, they get paid.
@@ -399,3 +470,7 @@ Add a simple reentrancy guard (nonReentrant) to the three ETH-sending functions.
 Move to a pull-payments model for mass refunds: record refundable balances and let users withdraw individually (no looped calls).
 Minimal change: import OpenZeppelin ReentrancyGuard and add nonReentrant.
 Better change: remove the for-loop refund and expose withdrawBountyFund() + ownerCancel() which only resets criteria and leaves withdrawals to users.
+
+Theory:
+
+- Your PR approver list is a multisig for releasing bounty funds

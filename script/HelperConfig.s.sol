@@ -31,7 +31,7 @@ contract HelperConfig is CodeConstants, Script {
         uint64 functionsSubscriptionId;
         address link;
         address account;
-        address functionsOracle;
+        address functionsRouter;
         bytes32 donID;
 
         // S3/URL-hosted secrets model
@@ -88,7 +88,7 @@ contract HelperConfig is CodeConstants, Script {
             functionsSubscriptionId: 5708,
             link: 0x6641415a61bCe80D97a715054d1334360Ab833Eb,
             account: 0x030C29e1B5D2A2Faf23A4ec51D0351B4e7431293, // burner account address on eth-sepolia (with testnet funds)
-            functionsOracle: 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0,
+            functionsRouter: 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0,
             donID: 0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000,
             encryptedSecretsUrls: s_sepoliaEncryptedSecretsUrls
         });
@@ -121,7 +121,7 @@ contract HelperConfig is CodeConstants, Script {
             functionsSubscriptionId: 0,
             link: address(linkToken),
             account: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38, // Foundry default address for tx.origin and msg.sender
-            functionsOracle: address(mockOracle), // address of deployed mock Functions Oracle
+            functionsRouter: address(mockOracle), // address of deployed mock Functions Oracle
             donID: bytes32("mock-don-id"), // placeholder
             encryptedSecretsUrls: bytes("")
         });

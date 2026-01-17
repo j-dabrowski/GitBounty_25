@@ -1,29 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {FunctionsClient} from "@chainlink/v1/FunctionsClient.sol";
-import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import {FunctionsRequest} from "@chainlink/v1/libraries/FunctionsRequest.sol";
-
-
 /**
- * @title Gitbounty
- * @notice Extends the Raffle contract to include Chainlink Functions for external approval before winner selection.
+ * Gitbounty (Factory-compatible)
+ * - NO FunctionsClient / NO Automation interface in the child
+ * - Factory is the ONLY FunctionsClient and the ONLY Automation Upkeep target
+ *
+ * Child responsibilities:
+ *  - Hold funds + payout logic
+ *  - Provide args to factory via getArgs()
+ *  - Accept fulfillment from factory via onFunctionsFulfilled()
+ *
+ * Notes:
+ *  - performUpkeep/checkUpkeep are removed (factory schedules attempts)
+ *  - s_lastRequestId is still stored for sanity matching
  */
-contract Gitbounty is FunctionsClient, ConfirmedOwner {
-    using FunctionsRequest for FunctionsRequest.Request;
+interface IGitbountyFactory {
+    function closeBounty(address bounty) external;
+}
 
-    /* Errors */
+contract Gitbounty {
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+    error Gitbounty__AlreadyInitialized();
     error Gitbounty__SendNonZeroEth();
     error Gitbounty__NoFundToWithdraw();
-    error Gitbounty__NoAddressMappedToUsername(string username);
-    error UnexpectedRequestID(bytes32 requestId);
-    // Gitbounty errors below
     error Gitbounty__TransferFailed();
     error Gitbounty__NotOpen();
-    error Gitbounty__UpkeepNotNeeded(uint256 balance, uint256 numberOfFunders, uint256 gitbountyState);
+    error Gitbounty__CriteriaNotSet();
+    error Gitbounty__OnlyFactory();
+    error Gitbounty__NotOwner();
+    error Gitbounty__UnexpectedRequestID(bytes32 requestId);
 
-    /* type declarations */
+    /*//////////////////////////////////////////////////////////////
+                                TYPES
+    //////////////////////////////////////////////////////////////*/
     enum GitbountyState {
         BASE,
         EMPTY,
@@ -32,148 +44,105 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         PAID
     }
 
-    // Functions State variables
+    /*//////////////////////////////////////////////////////////////
+                                MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Gitbounty__NotOwner();
+        _;
+    }
+
+    modifier onlyFactory() {
+        if (msg.sender != factory) revert Gitbounty__OnlyFactory();
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                STATE
+    //////////////////////////////////////////////////////////////*/
+    address public owner;
+    address public factory;
+    bool private initialized;
+
+    // Factory/Functions bookkeeping
     bytes32 public s_lastRequestId;
     bytes public s_lastResponse;
     bytes public s_lastError;
-    // Payment Record Keeping
+
+    // Payment record keeping
     string public lastWinnerUser;
     string public last_repo_owner;
     string public last_repo;
     string public last_issueNumber;
     uint256 public last_BountyAmount;
     address private s_lastWinner;
-    uint256 private s_lastTimeStamp;
 
-    /* state variables */
     // Funding
-    mapping(string => address) private s_githubToAddress;
-    string[] private usernames;
     mapping(address => uint256) private s_contributions;
     address[] private funders;
+    mapping(address => bool) private s_inFundersList;
+
     uint256 private s_totalFunding;
     uint256 private s_funderCount;
-    // Bounty Criteria
+
+    // Bounty criteria
     string private repo_owner;
     string private repo;
     string private issueNumber;
-    // @dev duration of the interval in seconds
-    uint256 private immutable i_interval;
-    GitbountyState private s_gitbountyState; // start as open
-    // Other
-    address router;
-    bytes32 donID;
-    uint64 public functionsSubId;
-    string public source;
-    // Callback gas limit
-    uint32 gasLimit = 300000;
-    bytes public encryptedSecretsUrls;
 
-    /** Events */
-    event GithubUserMapped(string indexed username, address indexed userAddress);
+    GitbountyState private s_gitbountyState;
+
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
     event BountyFunded(address indexed sender, uint256 value);
     event BountyFundWithdrawn(address indexed sender, uint256 value);
     event BountyClaimed(address indexed winner, uint256 value);
 
-    // Event to log responses
-    event Response(
-        bytes32 indexed requestId,
-        bytes response,
-        bytes err
-    );
+    event Response(bytes32 indexed requestId, bytes response, bytes err);
 
-    /**
-     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
-     */
-    constructor(
-        uint256 _interval,
-        address _functionsOracle,
-        bytes32 _donID,
-        uint64 _functionsSubId,
-        string memory _sourceCode,
-        bytes memory _encryptedSecretsUrls
-    )
-        FunctionsClient(_functionsOracle)
-        ConfirmedOwner(msg.sender)
-    {
-        s_lastTimeStamp = block.timestamp;
-        s_gitbountyState = GitbountyState.BASE;
-        i_interval = _interval;
-        router = _functionsOracle;
-        donID = _donID;
-        functionsSubId = _functionsSubId;
-        source = _sourceCode;
-        encryptedSecretsUrls = _encryptedSecretsUrls;
+    /*//////////////////////////////////////////////////////////////
+                                INIT
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Called once by the factory right after cloning
+    function initialise(
+        address _owner,
+        string calldata _repoOwner,
+        string calldata _repo,
+        string calldata _issueNumber
+    ) external payable {
+        if (initialized) revert Gitbounty__AlreadyInitialized();
+        if (msg.value == 0) revert Gitbounty__SendNonZeroEth();
+
+        // bind factory forever
+        factory = msg.sender;
+
+        // set ownership + criteria
+        owner = _owner;
+        repo_owner = _repoOwner;
+        repo = _repo;
+        issueNumber = _issueNumber;
+
+        // treat init ETH as first funding contribution from the owner
+        _fundBounty(_owner, msg.value);
+
+        // now it’s eligible for factory retries
+        s_gitbountyState = GitbountyState.READY;
+
+        initialized = true;
     }
 
-    function setBountyCriteria(
-        string calldata _owner,
-        string calldata _repo,
-        string calldata _issue
-    ) public onlyOwner {
+    /*//////////////////////////////////////////////////////////////
+                           BOUNTY LIFECYCLE
+    //////////////////////////////////////////////////////////////*/
+    function isBountyReady() external view returns (bool) {
+        return s_gitbountyState == GitbountyState.READY;
+    }
+
+    function setBountyCriteria(string calldata _owner, string calldata _repo, string calldata _issue) public onlyOwner {
         repo_owner = _owner;
         repo = _repo;
         issueNumber = _issue;
-    }
-
-    function _fundBounty(address sender, uint256 amount) internal {
-        if (amount == 0) {
-            revert Gitbounty__SendNonZeroEth();
-        }
-
-        if (s_contributions[sender] == 0) {
-            s_funderCount++;
-            funders.push(sender); // track new funder
-        }
-
-        s_contributions[sender] += amount;
-        s_totalFunding += amount;
-
-        emit BountyFunded(sender, amount);
-    }
-
-    function fundBounty() public payable {
-        _fundBounty(msg.sender, msg.value);
-    }
-
-    function withdrawBountyFund() external {
-        uint256 amount = s_contributions[msg.sender];
-        if (amount == 0) {
-            revert Gitbounty__NoFundToWithdraw(); // Define this error
-        }
-
-        s_contributions[msg.sender] = 0;
-        s_totalFunding -= amount;
-        s_funderCount--;
-
-        (bool success, ) = msg.sender.call{value: amount}("");
-        if (!success) {
-            revert Gitbounty__TransferFailed();
-        }
-        
-        emit BountyFundWithdrawn(msg.sender, amount);
-    }
-
-    function deleteAndRefundBounty() public onlyOwner {
-        // Refund all contributors
-        for (uint256 i = 0; i < funders.length; i++) {
-            address funder = funders[i];
-            uint256 amount = s_contributions[funder];
-            if (amount > 0) {
-                s_contributions[funder] = 0;
-                (bool success, ) = funder.call{value: amount}("");
-                if (!success) revert Gitbounty__TransferFailed();
-                emit BountyFundWithdrawn(funder, amount);
-            }
-        }
-        // Reset funding state
-        _resetContributions();
-        // Reset bounty criteria
-        repo_owner = "";
-        repo = "";
-        issueNumber = "";
-        // Set gitbounty state to OPEN (or CALCULATING if appropriate)
-        s_gitbountyState = GitbountyState.EMPTY;
     }
 
     function createAndFundBounty(
@@ -186,30 +155,22 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         s_gitbountyState = GitbountyState.READY;
     }
 
-    function mapGithubUsernameToAddress(string calldata username) external {
-        require(bytes(username).length > 0, "Username required");
-        require(s_githubToAddress[username] == address(0), "Username already mapped");
+    function deleteAndRefundBounty() public onlyOwner {
+        _refundAllFunders();
 
-        s_githubToAddress[username] = msg.sender;
-        usernames.push(username);
+        // Reset bounty criteria
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
 
-        emit GithubUserMapped(username, msg.sender);
+        s_gitbountyState = GitbountyState.EMPTY;
     }
 
     function resetContract() external onlyOwner {
-        deleteAndRefundBounty();
-        
-        // Reset contributions
-        _resetContributions();
+        // Refund any funds
+        _refundAllFunders();
 
-        // Clear GitHub username mappings
-        for (uint i = 0; i < usernames.length; i++) {
-            string memory user = usernames[i];
-            delete s_githubToAddress[user];
-        }
-        delete usernames;
-
-        // Reset bounty criteria
+        // Reset criteria
         repo_owner = "";
         repo = "";
         issueNumber = "";
@@ -219,95 +180,236 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         lastWinnerUser = "";
         last_BountyAmount = 0;
 
-        // Reset Chainlink Functions-related state
+        // Reset factory/callback state
         s_lastRequestId = bytes32(0);
         s_lastResponse = "";
         s_lastError = "";
-
-        // Reset timestamp
-        s_lastTimeStamp = block.timestamp;
 
         // Reset state
         s_gitbountyState = GitbountyState.BASE;
     }
 
-
-    /**
-     * @param - ignored
-     * @return upkeepNeeded - true if it's time to submit a functions call
-     * @return - ignored
-     */
-    function checkUpkeep(bytes memory /* checkData */) public view 
-        returns (bool upkeepNeeded, bytes memory /* performData */ )
-    {
-        bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) >= i_interval);
-        bool isReady = s_gitbountyState == GitbountyState.READY;
-        bool hasBalance = address(this).balance > 0;
-        bool hasFunders = s_funderCount > 0;
-        bool hasBountyCriteria = bytes(repo_owner).length > 0 && bytes(repo).length > 0 && bytes(issueNumber).length > 0;
-
-        upkeepNeeded = timeHasPassed && isReady && hasBalance && hasFunders && hasBountyCriteria;
-        return (upkeepNeeded, "");
+    function abandonInFlight() external onlyOwner {
+        // allow the bounty to be retried from scratch
+        s_lastRequestId = bytes32(0);
+        if (s_gitbountyState == GitbountyState.CALCULATING) {
+            s_gitbountyState = GitbountyState.READY;
+        }
     }
 
-    function performUpkeep(bytes calldata /* performData */ ) external {
-        // Checks
-        // check if enough time has passed
-        (bool upkeepNeeded, ) = checkUpkeep("");
-        if (!upkeepNeeded) {
-            revert Gitbounty__UpkeepNotNeeded(address(this).balance, s_funderCount, uint256(s_gitbountyState));
-        }
-        s_gitbountyState = GitbountyState.CALCULATING;
-        s_lastTimeStamp = block.timestamp;
-        
-        // === Prepare Request Arguments ===
-        string[] memory args = new string[](3);
-        args[0] = repo_owner;
-        args[1] = repo;
-        args[2] = issueNumber;
 
-        try this.sendRequest(functionsSubId, args) returns (bytes32 requestId) {
-            s_lastRequestId = requestId;
-        } catch Error(string memory reason) {
-            revert(string(abi.encodePacked("Functions request error: ", reason)));
-        } catch {
-            revert("Functions request failed: unknown reason");
+    /*//////////////////////////////////////////////////////////////
+                              FUNDING
+    //////////////////////////////////////////////////////////////*/
+    function _fundBounty(address sender, uint256 amount) internal {
+        if (amount == 0) revert Gitbounty__SendNonZeroEth();
+
+        uint256 prev = s_contributions[sender];
+        uint256 next = prev + amount;
+
+        // Track active funders count (contributors with >0 balance)
+        if (prev == 0) {
+            s_funderCount++;
         }
+
+        // Track membership so we only push once per "cycle"
+        if (!s_inFundersList[sender]) {
+            s_inFundersList[sender] = true;
+            funders.push(sender);
+        }
+
+        s_contributions[sender] = next;
+        s_totalFunding += amount;
+
+        emit BountyFunded(sender, amount);
+    }
+
+    function fundBounty() public payable {
+        _fundBounty(msg.sender, msg.value);
+        // If someone funds an empty/base bounty, you may want to keep it EMPTY until owner sets criteria.
+        // We won't auto-change state here.
+    }
+
+    function withdrawBountyFund() external {
+        uint256 prev = s_contributions[msg.sender];
+        if (prev == 0) revert Gitbounty__NoFundToWithdraw();
+
+        // Effects
+        s_contributions[msg.sender] = 0;
+        s_totalFunding -= prev;
+
+        // Only decrement when we *actually* went >0 -> 0
+        s_funderCount--;
+
+        // Interaction
+        (bool success, ) = msg.sender.call{value: prev}("");
+        if (!success) revert Gitbounty__TransferFailed();
+
+        emit BountyFundWithdrawn(msg.sender, prev);
+    }
+
+    function withdrawPartialBountyFund(uint256 amount) external {
+        uint256 prev = s_contributions[msg.sender];
+        require(amount > 0 && amount <= prev, "bad amount");
+
+        uint256 next = prev - amount;
+        s_contributions[msg.sender] = next;
+        s_totalFunding -= amount;
+
+        if (next == 0) s_funderCount--; // only on >0 -> 0
+
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) revert Gitbounty__TransferFailed();
+    }
+
+    function refundAllFunders() external onlyOwner {
+        _refundAllFunders();
+    }
+
+    function _refundAllFunders() internal {
+        for (uint256 i = 0; i < funders.length; i++) {
+            address funder = funders[i];
+            uint256 amount = s_contributions[funder];
+            
+            if (amount > 0) {
+                s_contributions[funder] = 0;
+
+                (bool success, ) = funder.call{value: amount}("");
+                if (!success) revert Gitbounty__TransferFailed();
+
+                emit BountyFundWithdrawn(funder, amount);
+            }
+        }
+
+        _resetContributions();
     }
 
     function _resetContributions() internal {
         for (uint256 i = 0; i < funders.length; i++) {
             address funder = funders[i];
             s_contributions[funder] = 0;
+            s_inFundersList[funder] = false; // allow fresh membership next cycle
         }
+
         delete funders;
         s_totalFunding = 0;
         s_funderCount = 0;
     }
 
-    /** Getter Functions */
-    function getGitbountyState() external view returns(GitbountyState) {
-        return s_gitbountyState;
+    /*//////////////////////////////////////////////////////////////
+                           FACTORY INTEGRATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Factory calls this before making the Functions request (or right after) to record request id and mark state.
+    /// The provided factory contract already sets inFlight and schedules; we only mark local CALCULATING.
+    /// @dev Not strictly required, but keeps your state machine clear.
+    function markCalculating(bytes32 requestId) external onlyFactory {
+        if (msg.sender != factory) revert Gitbounty__OnlyFactory();
+        s_gitbountyState = GitbountyState.CALCULATING;
+        s_lastRequestId = requestId;
     }
 
-    function getLastTimeStamp() external view returns (uint256) {
-        return s_lastTimeStamp;
+    /// @notice Factory reads args from this contract to build its Functions request.
+    function getArgs() external view returns (string memory _repo_owner, string memory _repo, string memory _issueNumber) {
+        _repo_owner = repo_owner;
+        _repo = repo;
+        _issueNumber = issueNumber;
+    }
+
+    /// @notice Factory forwards Functions fulfillment to this bounty.
+    function onFunctionsFulfilled(
+        bytes32 requestId,
+        address winner,
+        bytes calldata response,
+        bytes calldata err
+    ) external {
+        if (msg.sender != factory) revert Gitbounty__OnlyFactory();
+
+        // Strict request matching:
+        if (s_lastRequestId != bytes32(0) && s_lastRequestId != requestId) {
+            revert Gitbounty__UnexpectedRequestID(requestId);
+        }
+
+        s_lastRequestId = requestId;
+        s_lastResponse = response;
+        s_lastError = err;
+
+        _handleFulfillment(requestId, winner, response, err);
+    }
+
+    function _handleFulfillment(bytes32 requestId, address winner, bytes calldata response, bytes calldata err) internal {
+        // Decode response as UTF-8 string (GitHub username)
+        string memory result = string(response);
+
+        // Soft-fail if result is empty or "not_found"
+        if (
+            bytes(result).length == 0 ||
+            keccak256(bytes(result)) == keccak256(bytes("not_found"))
+        ) {
+            s_gitbountyState = GitbountyState.READY;
+            emit Response(requestId, response, err);
+            return;
+        }
+
+        // Soft-fail if unmapped
+        if (winner == address(0)) {
+            s_gitbountyState = GitbountyState.READY;
+            emit Response(requestId, response, err);
+            return;
+        }
+
+        // ----- CEI pattern -----
+        uint256 amount = s_totalFunding;
+
+        // Effects (commit state before external call; revert rolls all back if transfer fails)
+        s_lastWinner = winner;
+        lastWinnerUser = result;
+        last_repo_owner = repo_owner;
+        last_repo = repo;
+        last_issueNumber = issueNumber;
+        last_BountyAmount = amount;
+
+        // Clear criteria & contributions
+        repo_owner = "";
+        repo = "";
+        issueNumber = "";
+
+        _resetContributions();
+
+        s_gitbountyState = GitbountyState.PAID;
+
+        // Interaction
+        (bool success, ) = winner.call{value: amount}("");
+        if (!success) revert Gitbounty__TransferFailed();
+
+        emit BountyClaimed(winner, amount);
+        emit Response(requestId, response, err);
+
+        // Optional: inform factory to stop scheduling this bounty.
+        // If your factory's closeBounty is onlyOwner, this will revert.
+        // You can either:
+        //  (a) remove this call, or
+        //  (b) add a "closeBountyFromChild" function in factory restricted to registered children.
+        // try IGitbountyFactory(factory).closeBounty(address(this)) {} catch {}
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                GETTERS
+    //////////////////////////////////////////////////////////////*/
+    function getGitbountyState() external view returns (GitbountyState) {
+        return s_gitbountyState;
     }
 
     function getContribution() external view returns (uint256) {
         return s_contributions[msg.sender];
     }
 
-    function getFunderCount() public view returns (uint256) {
+    function getFunderCount() external view returns (uint256) {
         return s_funderCount;
     }
 
     function getBalance() external view returns (uint256) {
-    return address(this).balance;
-}
-
-    function getAddressFromUsername(string calldata username) external view returns (address) {
-        return s_githubToAddress[username];
+        return address(this).balance;
     }
 
     function getRepoOwner() external view returns (string memory) {
@@ -322,142 +424,7 @@ contract Gitbounty is FunctionsClient, ConfirmedOwner {
         return issueNumber;
     }
 
-    // CHAINLINK FUNCTIONS
-    /**
-     * @notice Checks Github for the user who created PR that was merged for the issue
-     * @param subscriptionId The ID for the Chainlink subscription
-     * @param args The arguments to pass to the HTTP request
-     * @return requestId The ID of the request
-     */
-    function sendRequest(
-        uint64 subscriptionId,
-        string[] calldata args
-    ) external returns (bytes32 requestId) {
-        FunctionsRequest.Request memory req;
-        req._initializeRequestForInlineJavaScript(source);
-        // Add args if they exist
-        if (args.length > 0) {
-            req._setArgs(args);
-        }
-        // Add encrypted secrets URLs if they exist
-        if (encryptedSecretsUrls.length > 0) {
-            req._addSecretsReference(encryptedSecretsUrls);
-        }
-
-        s_lastRequestId = _sendRequest(
-            req._encodeCBOR(),
-            subscriptionId,
-            gasLimit,
-            donID
-        );
-
-        return s_lastRequestId;
-    }
-
-    function sendRequestWithSource(
-        uint64 subscriptionId,
-        string calldata sentSource,
-        string[] calldata args
-    ) external onlyOwner returns (bytes32 requestId) {
-        FunctionsRequest.Request memory req;
-        req._initializeRequestForInlineJavaScript(sentSource);
-        // Add args if they exist
-        if (args.length > 0) {
-            req._setArgs(args);
-        }
-        // Add encrypted secrets URLs if they exist
-        if (encryptedSecretsUrls.length > 0) {
-            req._addSecretsReference(encryptedSecretsUrls);
-        }
-
-        s_lastRequestId = _sendRequest(
-            req._encodeCBOR(),
-            subscriptionId,
-            gasLimit,
-            donID
-        );
-
-        return s_lastRequestId;
-    }
-
-    function _fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal override {
-        fulfillRequest(requestId, response, err);
-    }
-
-    /**
-     * @notice Callback function for fulfilling a request
-     * @param requestId The ID of the request to fulfill
-     * @param response The HTTP response data
-     * @param err Any errors from the Functions request
-     */
-    function fulfillRequest(
-        bytes32 requestId,
-        bytes memory response,
-        bytes memory err
-    ) internal {
-        if (s_lastRequestId != requestId) {
-            revert UnexpectedRequestID(requestId); // Check if request IDs match
-        }
-        s_lastResponse = response;
-        s_lastError = err;
-
-        // Decode the response as a UTF-8 string
-        string memory result = string(response);
-
-        // Soft-fail if result is "not_found" or empty or error signal
-        if (
-            bytes(result).length == 0 ||
-            keccak256(bytes(result)) == keccak256("not_found")
-        ) {
-            // No state changes — soft fail
-            s_gitbountyState = GitbountyState.READY;
-            emit Response(requestId, response, err); // log anyway
-            return;
-        }
-
-        // Lookup the winner address
-        address winner = s_githubToAddress[result];
-
-        // Soft-fail if unmapped
-        if (winner == address(0)) {
-            s_gitbountyState = GitbountyState.READY;
-            emit Response(requestId, response, err); // log anyway
-            return;
-        }
-
-        // Payout
-        uint256 amount = s_totalFunding;
-
-        // Send payout
-        (bool success, ) = winner.call{value: amount}("");
-        if (!success) revert Gitbounty__TransferFailed();
-
-        s_lastWinner = winner;
-        lastWinnerUser = result;
-        last_repo_owner = repo_owner;
-        last_repo = repo;
-        last_issueNumber = issueNumber;
-        last_BountyAmount = amount;
-
-        // Clear bounty criteria
-        repo_owner = "";
-        repo = "";
-        issueNumber = "";
-
-        _resetContributions();
-
-        // Update state
-        s_gitbountyState = GitbountyState.PAID;
-
-        emit BountyClaimed(winner, amount);
-        emit Response(requestId, response, err);
-    }
-    
-    function getLastResponse() external view returns(bytes memory lastResponse) {
+    function getLastResponse() external view returns (bytes memory) {
         return s_lastResponse;
     }
 }
