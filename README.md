@@ -401,14 +401,14 @@ check if correct values returned by script
 
 #### To do
 
-- Add create child gitbounty function in factory
-- Update helperconfig
-- Update Deploy script
 - Make foundry tests of factory and child
-- Make new makefile
 - Make UI tracking of events and arrays, variables, bounty reward sending visualisation
 - Make UI statistics about bounty variables
 - Make UI to create and interact with bounties and watch their information live
+
+User funding of Automation and Functions:
+
+- only attempt bounties that have prepaid credits and use those credits as your internal economic gate then you (as operator) fund the Automation upkeep + Functions sub globally (LINK) and you set your fees so that overall you don’t lose money
 
 Mapping identity is wide open → easy to “steal” a username mapping
 mapGithubUsernameToAddress(string username) is open and permanently maps a username to the first caller.

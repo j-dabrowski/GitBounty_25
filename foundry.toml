@@ -14,6 +14,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "./script.js" },
     { access = "read", path = "./offchain" },
+    { access = "read", path = "./config" },
 ]
 
 [fuzz]

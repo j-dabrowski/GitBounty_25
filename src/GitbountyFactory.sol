@@ -64,10 +64,10 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     error UnknownRequest(bytes32 requestId);
     error InvalidBounty(address bounty);
     error NoBounties();
-    error InsufficientCredits(address bounty, uint256 needed, uint256 have);
     error GitbountyFactory__UsernameAlreadyMapped();
     error OnlySelf();
     error GitbountyFactory__SendNonZeroEth();
+    error UsernameRequired();
 
     /*//////////////////////////////////////////////////////////////
                           CLONE / IMPLEMENTATION
@@ -112,10 +112,6 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     mapping(address => uint256) private nextAttemptAt;
     mapping(address => bool) public inFlight;
 
-    // Per-bounty credits (you can denominate in ETH/wei, or treat as "internal credits")
-    mapping(address => uint256) private creditsWei;
-    uint256 private attemptFeeWei = 0; // set to nonzero if you want users to prepay "retry budget"
-
     /*//////////////////////////////////////////////////////////////
                                REQUEST ROUTING
     //////////////////////////////////////////////////////////////*/
@@ -130,8 +126,6 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     event BountyClosed(address indexed bounty);
     event BountyOpened(address indexed bounty);
     event GithubUserMapped(string indexed username, address indexed userAddress);
-    event CreditsDeposited(address indexed bounty, address indexed payer, uint256 amountWei);
-    event AttemptFeeUpdated(uint256 newAttemptFeeWei);
     event FactoryConfigUpdated(bytes32 donID, uint64 subId, uint32 callbackGasLimit);
     event SourceUpdated();
     event SecretsUpdated();
@@ -231,7 +225,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
                            ADMIN: GITHUB USERNAME - ADDRESS REGISTRY
     //////////////////////////////////////////////////////////////*/
     function mapGithubUsernameToAddress(string calldata username) external {
-        require(bytes(username).length > 0, "Username required");
+        if (bytes(username).length == 0) revert UsernameRequired();
         if (s_githubToAddress[username] != address(0)) revert GitbountyFactory__UsernameAlreadyMapped();
 
         s_githubToAddress[username] = msg.sender;
@@ -255,18 +249,6 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     /*//////////////////////////////////////////////////////////////
                           USER FUNDING (CREDITS)
     //////////////////////////////////////////////////////////////*/
-    /// @notice Anyone can deposit ETH credits for a specific bounty's future attempts.
-    function depositCredits(address bounty) external payable {
-        if (!isRegistered[bounty]) revert NotRegisteredBounty(bounty);
-        creditsWei[bounty] += msg.value;
-        emit CreditsDeposited(bounty, msg.sender, msg.value);
-    }
-
-    /// @notice Optional: set attempt fee; if >0, each scheduled attempt debits creditsWei[bounty].
-    function setAttemptFeeWei(uint256 newFeeWei) external onlyOwner {
-        attemptFeeWei = newFeeWei;
-        emit AttemptFeeUpdated(newFeeWei);
-    }
 
     /*//////////////////////////////////////////////////////////////
                           ADMIN: CONFIG SETTERS
@@ -295,7 +277,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     }
 
     /*//////////////////////////////////////////////////////////////
-                        ELIGIBILITY (INTERNAL VIEW)
+                        ELIGIBILITY
     //////////////////////////////////////////////////////////////*/
     function _eligible(address bounty) internal view returns (bool) {
         if (!isOpen[bounty]) return false;
@@ -306,9 +288,25 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         // (optional) ensures the child also thinks it's open
         if (!IGitbountyChild(bounty).isBountyReady()) return false;
 
-        if (attemptFeeWei > 0 && creditsWei[bounty] < attemptFeeWei) return false;
-
         return true;
+    }
+
+    function isEligible(address bounty) external view returns (bool eligible) {
+        return _eligible(bounty);
+    }
+
+    function eligibilityBreakdown(address bounty)
+        external
+        view
+        returns (bool registered, bool open, bool flight, bool timeOk, bool childReady, uint256 nextAt)
+    {
+        registered = isRegistered[bounty];
+        open = isOpen[bounty];
+        flight = inFlight[bounty];
+        nextAt = nextAttemptAt[bounty];
+
+        timeOk = block.timestamp >= nextAt;
+        childReady = IGitbountyChild(bounty).isBountyReady();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -381,12 +379,6 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
             args[1] = repo;
             args[2] = issueNumber;
 
-            // ---- attempt fee: ONLY commit if we successfully send+mark ----
-            uint256 fee = attemptFeeWei;
-            if (fee > 0 && creditsWei[bounty] < fee) {
-                continue; // don't revert the entire upkeep; just skip
-            }
-
             // ---- try/catch SEND (self-call wrapper) ----
             bytes32 requestId;
             try this._sendFunctionsRequestExternal(args) returns (bytes32 rid) {
@@ -403,18 +395,12 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
             // ---- commit routing BEFORE external child call ----
             requestToBounty[requestId] = bounty;
 
-            // ---- debit fee AFTER we know the request exists + routing set ----
-            if (fee > 0) {
-                creditsWei[bounty] -= fee;
-            }
-
             // ---- try/catch child markCalculating ----
             try IGitbountyChild(bounty).markCalculating(requestId) {
                 // ---- Save last request ID ----
                 lastRequestForBounty[bounty] = requestId;
             } catch {
                 // UNDO everything we just committed
-                if (fee > 0) creditsWei[bounty] += fee;
                 delete requestToBounty[requestId];
                 inFlight[bounty] = false;
                 nextAttemptAt[bounty] = block.timestamp;
@@ -472,26 +458,9 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         return bounties.length;
     }
 
-    function dropRequest(bytes32 requestId) public onlyOwner {
-        address bounty = requestToBounty[requestId];
-        delete requestToBounty[requestId];
-
-        if (bounty != address(0)) {
-            if (lastRequestForBounty[bounty] == requestId) {
-                lastRequestForBounty[bounty] = bytes32(0);
-            }
-            inFlight[bounty] = false;
-            nextAttemptAt[bounty] = block.timestamp; // retry ASAP
-        }
-    }
-
-    function dropLastRequestForBounty(address bounty) external onlyOwner {
-        bytes32 rid = lastRequestForBounty[bounty];
-        if (rid != bytes32(0)) dropRequest(rid);
-        else {
-            inFlight[bounty] = false;
-            nextAttemptAt[bounty] = block.timestamp;
-        }
+    function adminUnlockBounty(address bounty) external onlyOwner {
+        inFlight[bounty] = false;
+        nextAttemptAt[bounty] = block.timestamp;
     }
 
     /*//////////////////////////////////////////////////////////////

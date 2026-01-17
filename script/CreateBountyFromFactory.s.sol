@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {GitbountyFactory} from "../src/GitbountyFactory.sol";
-import {HelperConfig} from "./HelperConfig.s.sol";
 
 contract CreateBountyFromFactory is Script {
     error MissingFactoryAddress();
@@ -13,9 +12,6 @@ contract CreateBountyFromFactory is Script {
     error MissingBountyAmount();
 
     function run() external returns (address bountyAddr) {
-        HelperConfig helper = new HelperConfig();
-        HelperConfig.NetworkConfig memory cfg = helper.getConfig();
-
         address factoryAddr = vm.envOr("FACTORY_ADDRESS", address(0));
         if (factoryAddr == address(0)) revert MissingFactoryAddress();
 
@@ -39,7 +35,7 @@ contract CreateBountyFromFactory is Script {
         }
         if (amountWei == 0) revert MissingBountyAmount();
 
-        vm.startBroadcast(cfg.account);
+        vm.startBroadcast();
 
         bountyAddr = GitbountyFactory(factoryAddr).createBounty{value: amountWei}(
             repoOwner,

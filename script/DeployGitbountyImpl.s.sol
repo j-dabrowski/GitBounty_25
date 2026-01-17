@@ -6,6 +6,11 @@ import {Gitbounty} from "../src/Gitbounty.sol";
 
 contract DeployGitbountyImpl is Script {
     function run() external returns (Gitbounty implementation) {
+        
+        /*//////////////////////////////////////////////////////////////
+                        BROADCAST CONTRACT DEPLOYMENT
+        //////////////////////////////////////////////////////////////*/
+        
         vm.startBroadcast();
         // Deploy the implementation once (EIP-1167 clones will point at this)
         implementation = new Gitbounty();
