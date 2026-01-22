@@ -18,7 +18,7 @@ Run the frontend in this repo to interface with the contract and create bounties
 
 ## Project Background
 
-Open source collaboration is the backbone of modern software, but financial incentives are often misaligned or entirely absent. Maintainers struggle to get help on critical issues, contributors lack clear pathways to compensation, and sponsors have little transparency into what their funds achieve.
+Open source collaboration is the backbone of modern software, but financial incentives can be misaligned or entirely absent. Maintainers struggle to get help on critical issues, contributors lack clear pathways to compensation, and sponsors have little transparency into what their funds achieve.
 
 **GitBounty** solves this by turning GitHub issues into open, permissionless bounties. It creates a decentralised incentive layer for software collaboration.
 
@@ -35,7 +35,7 @@ request → work → verification → approval
 
 This structure allows open-source projects to define and enforce their own contribution standards, while enabling automated and transparent financial incentives on-chain.
 
-## What's next?
+### Ideas for the future
 
 Looking forward, each stage of the UBP could be augmented or fully automated by AI. From generating work proposals to writing code and verifying correctness, this could create a powerful new paradigm: a decentralised, competitive market of work for AI software developer agents.
 
@@ -43,7 +43,7 @@ Bounty contracts could be ownable, tradable, and packaged into a new class of on
 
 ---
 
-### Overview of files
+## Overview of files
 
 #### offchain/
 
@@ -81,55 +81,52 @@ GitbountyTest.t.sol
 
 - Tests deployment and methods of GitBounty.sol (excluding Chainlink Functions request)
 
-### Setup
+---
+
+## Setup
 
 #### Install
 
-Update dependencies:
-$ git submodule update --init --recursive
-
-Build:
-$ forge clean
-$ forge build
-
-Navigate to offchain/
-$ cd offchain
-
-Install the npm dependencies
-$ brew install python@3.11
-$ PYTHON=/usr/local/bin/python3.11 npm install
+1. Update dependencies:
+   $ git submodule update --init --recursive
+2. Build:
+   $ forge clean
+   $ forge build
+3. Navigate to offchain/
+   $ cd offchain
+4. Install the npm dependencies
+   $ brew install python@3.11
+   $ PYTHON=/usr/local/bin/python3.11 npm install
 
 #### Chainlink Services
 
-**Chainlink Functions**
+_Chainlink Functions_
 
-- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
-- Get the subscription ID and set it in config/eth-sepolia.json
+1. create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
+2. Get the subscription ID and set it in config/eth-sepolia.json
 
-**Chainlink Automation**
+_Chainlink Automation_
 
-- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-- Get the subscription ID and set it in HelperConfig.s.sol
+1. Create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
+2. Get the subscription ID and set it in HelperConfig.s.sol
 
 #### Environment variables
 
-##### .env Unencrypted Variables (config settings, public addresses)
+_.env Unencrypted Variables (config settings, public addresses)_
 
-#. Navigate to project root
-#. Rename .env.example to .env, and set the variables.
-#. Any time .env is edited, save .env and run this to load it into the terminal session's context:
-$ source .env
+1. Navigate to project root
+2. Rename .env.example to .env, and set the variables.
+3. Any time .env is edited, save .env and run this to load it into the terminal session's context:
+   $ source .env
 
-##### .env.enc Encrypted Variables (api secrets, private keys)
+_.env.enc Encrypted Variables (api secrets, private keys)_
 
-Navigate to offchain/
-$ cd offchain
-
-Set the env-enc password for the first time (or enter an existing password, if env.enc already exists)
-$ npx env-enc set-pw
-
-Set the following keys/values as encrypted local variables
-$ npx env-enc set
+1. Navigate to offchain/
+   $ cd offchain
+2. Set the env-enc password for the first time (or enter an existing password, if env.enc already exists)
+   $ npx env-enc set-pw
+3. Set the following keys/values as encrypted local variables
+   $ npx env-enc set
 
 ```
 GITHUB_SECRET -- set now
@@ -142,56 +139,33 @@ ETHERSCAN_API_KEY -- set now
 
 #### Offchain secrets setup
 
-#. Navigate to offchain/
-$ cd offchain
-
-#. Run gen_offchain_secrets.js
-$ node gen_offchain_secrets.js
+1. Navigate to offchain/
+   $ cd offchain
+2. Run gen_offchain_secrets.js
+   $ node gen_offchain_secrets.js
 
 - Generates offchain-secrets.json file containing encrypted GITHUB_SECRET from env-enc
 
-#. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
-
-#. Set the Amazon Web Bucket URL as an encrypted local variable
-$ npx env-enc set
+3. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
+4. Set the Amazon Web Bucket URL as an encrypted local variable
+   $ npx env-enc set
 
 ```
 GITHUB_SECRET_URL
 ```
 
-#. Run encrypt_secrets_url.js
-$ node encrypt_secrets_url.js
+5. Run encrypt_secrets_url.js
+   $ node encrypt_secrets_url.js
 
 - Encrypts offchain-secrets.json amazon web bucket url and generates file 'encrypted-secrets-urls.sepolia.json' to be used by Deploy script later
 
-simulate_request.js
+6. Run simulate_request.js (optional)
 
 - Tests the Chainlink Functions request to GitHub API
 
-#### Chainlink Services
+---
 
-Set up .env local variables for the makefile:
-
-Deploy the project:
-$ make deploy ARGS="--network sepolia"
-
-Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
-
-Set the deployed contract address as a .env local variable
-CONTRACT_ADDRESS=**\_\_\_\_**
-Then refresh the terminal session's local variables from .env:
-$ source .env
-
-Map a username/address in the deployed contract:
-$ make mapGithubUsername
-
-Create and fund a bounty:
-$ make createAndFundBounty
-
-Manually call Functions request and payment:
-$ make performUpkeep
-
-### Reference
+## Reference
 
 .env
 ↓
@@ -288,6 +262,8 @@ Open
 Funded
 ...
 
+---
+
 ### Build
 
 ```shell
@@ -327,15 +303,30 @@ Test start to finish (with automation)
 
 ### Deploy
 
-```shell
-`make deploy ARGS="--network sepolia"`
-```
+Set up .env local variables for the makefile:
 
-Register the contract address in a new Chainlink Automation Upkeep.
+Deploy the project:
+$ make deploy ARGS="--network sepolia"
 
-Register the contract address as a consumer of the Chainlink Functions subscription
+Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
 
-### Offchain secrets
+Set the deployed contract address as a .env local variable
+CONTRACT_ADDRESS=**\_\_\_\_**
+Then refresh the terminal session's local variables from .env:
+$ source .env
+
+Map a username/address in the deployed contract:
+$ make mapGithubUsername
+
+Create and fund a bounty:
+$ make createAndFundBounty
+
+Manually call Functions request and payment:
+$ make performUpkeep
+
+---
+
+### Unsorted Notes
 
 Clone the official chainlink functions examples repo in another directory.
 
