@@ -88,13 +88,20 @@ GitbountyTest.t.sol
 #### Install
 
 1. Update dependencies:
+
    $ git submodule update --init --recursive
+
 2. Build:
+
    $ forge clean
    $ forge build
+
 3. Navigate to offchain/
+
    $ cd offchain
+
 4. Install the npm dependencies
+
    $ brew install python@3.11
    $ PYTHON=/usr/local/bin/python3.11 npm install
 
@@ -108,7 +115,7 @@ _Chainlink Functions_
 _Chainlink Automation_
 
 1. Create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-2. Get the subscription ID and set it in HelperConfig.s.sol
+2. Get the subscription ID and set it in config/eth-sepolia.json
 
 #### Environment variables
 
