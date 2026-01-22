@@ -1,12 +1,25 @@
 -include .env
 export
 
+# Helper: gets secret from env-enc
+ENV_ENC_PATH ?= offchain/.env.enc
+define envenc
+node -e 'const envEnc=require("@chainlink/env-enc"); envEnc.config({path:"$(ENV_ENC_PATH)"}); process.stdout.write(process.env.$(1)||"")'
+endef
+
+# Get secrets from offchain/.env.enc (everything else stored in .env)
+SEPOLIA_RPC_URL   := $(shell $(call envenc,SEPOLIA_RPC_URL))
+MAINNET_RPC_URL   := $(shell $(call envenc,MAINNET_RPC_URL))
+ETHERSCAN_API_KEY := $(shell $(call envenc,ETHERSCAN_API_KEY))
+PRIVATE_KEY       := $(shell $(call envenc,PRIVATE_KEY))
+
+# Default Anvil key (used for local testing)
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
-ARGS ?=
-
+# Default network
 NETWORK ?= sepolia
 
+# Setup network args
 ifeq ($(NETWORK),sepolia)
 NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) \
                 --private-key $(PRIVATE_KEY) \
@@ -23,6 +36,8 @@ NETWORK_ARGS := --rpc-url http://localhost:8545 \
 RPC_ONLY := --rpc-url http://localhost:8545
 RPC_AND_KEY := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY)
 endif
+
+# ---------- Phony ----------
 
 .PHONY: deployFactory deployBounty \
 	factoryPerformSingle factoryCheckUpkeep factoryMapUsername \

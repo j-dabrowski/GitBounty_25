@@ -2,20 +2,17 @@
 
 **GitBounty is a Web3 app which allows GitHub users to create bounties on their Github issues.**
 
-It does this by using smart contracts to automatically monitor the Github API with Chainlink Functions and Chainlink Automation.
-
-Contract live on eth-sepolia testnet:
-https://sepolia.etherscan.io/address/0x3bA67d986720Dd6fA69871e7113fbC595345B21c
+It uses smart contracts to automatically monitor the Github API with Chainlink Functions and Chainlink Automation.
 
 Run the frontend in this repo to interface with the contract and create bounties of your Github issues.
 
-### General Usage
+1. Developers register their github username and wallet address in the registry.
 
-Developers to register their github username and wallet address in the registry.
+2. Then, given an existing Github repo, with open issues available, a user can create a bounty on an issue by entering the repo owner, the repo name, and the issue number, and funding it with ETH. The bounty can be funded multiple times, by multiple users.
 
-Then, given an existing Github repo, with open issues available, a user can create a bounty on an issue by entering the details and funding it with ETH. The bounty can be funded multiple times, by multiple users.
+3. To earn the bounty, a developer can use a github account in the registry to create a branched PR which merges back into master, and references the bounty's issue number.
 
-Once a branched PR (linked to the bounty's issue) has been merged successfully into the main branch, the Bounty will automatically pay out to the author of the PR.
+4. Once the branched PR has been merged into the main branch, the Bounty will automatically pay out to the author of the PR.
 
 ---
 
@@ -34,28 +31,9 @@ request → work → verification → approval
 - **Request**: The GitHub issue title and description serve as a formal request to modify a project’s code to meet specific criteria.
 - **Work**: Developers respond by submitting code changes (e.g., pull requests) that aim to satisfy the request.
 - **Verification**: Reviewers assess whether the submitted work meets the outlined requirements.
-- **Approval**: A final decision-making process (e.g., merge or review consensus) determines whether the contributor is rewarded.
+- **Approval**: A final decision-making process (e.g., PR review) determines whether the contributor is rewarded.
 
 This structure allows open-source projects to define and enforce their own contribution standards, while enabling automated and transparent financial incentives on-chain.
-
-With **GitBounty**, you can:
-
-💸 Attach bounties to issues
-Let anyone fund tasks they care about, not just repo maintainers.
-
-🔍 Automate contribution verification
-Uses smart contracts and Chainlink Functions to monitor the GitHub API and detect issue resolution or pull request merges.
-
-⛓ Trustless payouts
-Automatically sends rewards to contributors once work is verified, reducing friction and disputes.
-
-🤝 Incentivise outside help
-Attract contributors beyond your core team by providing clear, visible rewards.
-
-🛡 Reduce grant misuse
-Sponsors and DAOs can fund public goods with greater assurance that funds are tied to completed work.
-
-Whether you're a solo dev maintaining a side project, a DAO funding critical infrastructure, or a contributor seeking paid opportunities, **GitBounty** creates a new incentive structure that rewards open source work transparently and automatically.
 
 ## What's next?
 
@@ -63,37 +41,11 @@ Looking forward, each stage of the UBP could be augmented or fully automated by 
 
 Bounty contracts could be ownable, tradable, and packaged into a new class of on-chain assets - earning fees for their holders and effectively financialising the online gig economy of software development.
 
-## Technical Challenges
-
-One major limitation was the lack of secure secret management within Chainlink Automation. Chainlink Functions requires a GitHub token to query the API, but Automation can't store or inject secrets directly.
-
-To work around this, I embedded a read-only GitHub token with narrow permissions directly into the on-chain Functions JavaScript script. This allowed for full end-to-end automation without central servers or manual intervention, but at the cost of ideal security.
-
-## Theoretical Design Challenges
-
-While the Universal Bounty Protocol (UBP) aims to create a trust-minimised workflow, some stages, particularly approval, cannot be made fully trustless. The decision to merge a GitHub pull request remains subjective and human-driven.
-
-To address this, GitBounty embraces flexible trust models by allowing each project to define its own PR approver structure. This could range from a single maintainer to a decentralised reviewer committee.
-
-This led to a broader insight:
-
-Many types of work can be formalised as proposal → work → verification → approval processes, each with different degrees of trust minimisation.
-
-By clearly defining the trust boundaries and where discretion enters the process, users can better understand both the value and risk of each bounty.
-
 ---
 
-### Usage
+### Setup
 
-Chainlink Functions
-
-- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
-- Get the subscription ID and set it in HelperConfig.s.sol
-
-Chainlink Automation
-
-- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-- Get the subscription ID and set it in HelperConfig.s.sol
+#### Install
 
 Update dependencies:
 $ git submodule update --init --recursive
@@ -109,18 +61,70 @@ Install the npm dependencies
 $ brew install python@3.11
 $ PYTHON=/usr/local/bin/python3.11 npm install
 
+#### Chainlink Services
+
+**Chainlink Functions**
+
+- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
+- Get the subscription ID and set it in config/eth-sepolia.json
+
+**Chainlink Automation**
+
+- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
+- Get the subscription ID and set it in HelperConfig.s.sol
+
+#### Environment variables
+
+Navigate to project root
+
+Create a .env file
+$ touch .env
+
+Set the following variables:
+
+```
+FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+SEPOLIA_RPC_URL=
+MAINNET_RPC_URL=
+ETHERSCAN_API_KEY=
+PRIVATE_KEY=
+CONTRACT_ADDRESS=
+
+# Deployed Implementation contract
+GITBOUNTY_IMPL=
+
+# Deployed Factory contract
+FACTORY_ADDRESS=
+
+# Deployed Bounty contract
+BOUNTY_ADDRESS=
+
+EVENT=
+
+# Default bounty params
+REPO_OWNER=
+REPO=
+ISSUE_NUMBER=
+BOUNTY_VALUE=
+
+```
+
+Navigate to offchain/
+$ cd offchain
+
 Set the env-enc password
 $ npx env-enc set-pw
 
-Set your Private Key as an encrypted local variable
+Set your Private Key, Sepolia RPC Url, and GitHub API secret as encrypted local variables
 $ npx env-enc set
 (key = PRIVATE_KEY)
 
-Set your Sepolia RPC Url as an encrypted local variable
+Set your as an encrypted local variable
 $ npx env-enc set
 (key = SEPOLIA_RPC_URL)
 
-Set the GitHub API secret as an encrypted local variable
+Set the as an encrypted local variable
 $ npx env-enc set
 (key = GITHUB_SECRET)
 
@@ -399,9 +403,18 @@ check if correct values returned by script
   $ node examples/7-use-secrets-url/request_gitbounty.js
 - run this, and it will simulate your request, then actually make the request.
 
+#### Just completed
+
+- Tested on sepolia creating 2 bounties via factory, changing maxPerform to 2, and manually performing upkeep on the two in one call, triggering two functions requests, which both suceeded and paid out from the bounty contracts successfully.
+
 #### To do
 
+- Document setup and deployment via offchain/, makefile commands and .env with source .env, give recommended .env values such as warnings disabled, variables I have now but with generated ones redacted for default generic .env to be put in readme.
+
+- When bounty is completed, paid and reset/cleared, have it flagged as empty, so if a web user or makefile user wants to create a new bounty, it reuses an existing deployed empty contract owned by that user, instead of deploying a whole new bounty contract.
+
 - Make foundry tests of factory and child
+
 - Check if all variables that can be set/reset by creating or completing a bounty can be checked via getter. So we are able to test if everything gets reset.
 - Check how bounty behaves with certain arguments set and some not etc. Such as repo set, but not repo_owner, or bounty value = 0
 - implement User funding of Automation and Functions
