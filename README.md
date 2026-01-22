@@ -92,17 +92,20 @@ GitbountyTest.t.sol
    `git submodule update --init --recursive`
 
 2. Build:
+
    `forge clean`
+
    `forge build`
 
 3. Navigate to offchain/
 
-   $ cd offchain
+   `cd offchain`
 
 4. Install the npm dependencies
 
-   $ brew install python@3.11
-   $ PYTHON=/usr/local/bin/python3.11 npm install
+   `brew install python@3.11`
+
+   `PYTHON=/usr/local/bin/python3.11 npm install`
 
 #### Chainlink Services
 
@@ -123,16 +126,22 @@ _.env Unencrypted Variables (config settings, public addresses)_
 1. Navigate to project root
 2. Rename .env.example to .env, and set the variables.
 3. Any time .env is edited, save .env and run this to load it into the terminal session's context:
-   $ source .env
+
+   `source .env`
 
 _.env.enc Encrypted Variables (api secrets, private keys)_
 
 1. Navigate to offchain/
-   $ cd offchain
+
+   `cd offchain`
+
 2. Set the env-enc password for the first time (or enter an existing password, if env.enc already exists)
-   $ npx env-enc set-pw
+
+   `npx env-enc set-pw`
+
 3. Set the following keys/values as encrypted local variables
-   $ npx env-enc set
+
+   `npx env-enc set`
 
 ```
 GITHUB_SECRET -- set now
@@ -146,26 +155,33 @@ ETHERSCAN_API_KEY -- set now
 #### Offchain secrets setup
 
 1. Navigate to offchain/
-   $ cd offchain
+
+   `cd offchain`
+
 2. Run gen_offchain_secrets.js
-   $ node gen_offchain_secrets.js
+
+   `node gen_offchain_secrets.js`
 
 - Generates offchain-secrets.json file containing encrypted GITHUB_SECRET from env-enc
 
 3. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
 4. Set the Amazon Web Bucket URL as an encrypted local variable
-   $ npx env-enc set
+
+   `npx env-enc set`
 
 ```
 GITHUB_SECRET_URL
 ```
 
 5. Run encrypt_secrets_url.js
-   $ node encrypt_secrets_url.js
+
+   `node encrypt_secrets_url.js`
 
 - Encrypts offchain-secrets.json amazon web bucket url and generates file 'encrypted-secrets-urls.sepolia.json' to be used by Deploy script later
 
 6. Run simulate_request.js (optional)
+
+   `node simulate_request.js`
 
 - Tests the Chainlink Functions request to GitHub API
 
