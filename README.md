@@ -43,140 +43,7 @@ Bounty contracts could be ownable, tradable, and packaged into a new class of on
 
 ---
 
-### Setup
-
-#### Install
-
-Update dependencies:
-$ git submodule update --init --recursive
-
-Build:
-$ forge clean
-$ forge build
-
-Navigate to offchain/
-$ cd offchain
-
-Install the npm dependencies
-$ brew install python@3.11
-$ PYTHON=/usr/local/bin/python3.11 npm install
-
-#### Chainlink Services
-
-**Chainlink Functions**
-
-- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
-- Get the subscription ID and set it in config/eth-sepolia.json
-
-**Chainlink Automation**
-
-- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-- Get the subscription ID and set it in HelperConfig.s.sol
-
-#### Environment variables
-
-Navigate to project root
-
-Create a .env file
-$ touch .env
-
-Set the following variables:
-
-```
-FOUNDRY_DISABLE_NIGHTLY_WARNING=1
-
-SEPOLIA_RPC_URL=
-MAINNET_RPC_URL=
-ETHERSCAN_API_KEY=
-PRIVATE_KEY=
-CONTRACT_ADDRESS=
-
-# Deployed Implementation contract
-GITBOUNTY_IMPL=
-
-# Deployed Factory contract
-FACTORY_ADDRESS=
-
-# Deployed Bounty contract
-BOUNTY_ADDRESS=
-
-EVENT=
-
-# Default bounty params
-REPO_OWNER=
-REPO=
-ISSUE_NUMBER=
-BOUNTY_VALUE=
-
-```
-
-Navigate to offchain/
-$ cd offchain
-
-Set the env-enc password
-$ npx env-enc set-pw
-
-Set your Private Key, Sepolia RPC Url, and GitHub API secret as encrypted local variables
-$ npx env-enc set
-(key = PRIVATE_KEY)
-
-Set your as an encrypted local variable
-$ npx env-enc set
-(key = SEPOLIA_RPC_URL)
-
-Set the as an encrypted local variable
-$ npx env-enc set
-(key = GITHUB_SECRET)
-
-Run gen_offchain_secrets.js
-
-gen_offchain_secrets.js
-
-- Generates offchain-secrets.json file containing encrypted env-enc environment variable secret
-
-Upload offchain-secrets.json to Amazon Web Bucket and copy the url
-
-Set the GitHub secret URL as an encrypted local variable
-$ npx env-enc set
-(key = GITHUB_SECRET_URL)
-
-Run encrypt_secrets_url.js
-
-encrypt_secrets_url.js
-
-- Encrypts offchain-secrets.json amazon web bucket url, sends to chainlink DONS and exports ID and slot info as a .json 'secrets_slot_and_id.json' or 'config.json'
-
-simulate_request.js
-
-- Tests the Chainlink Functions request to GitHub API
-
-Set up .env local variables for the makefile:
-SEPOLIA_RPC_URL=
-MAINNET_RPC_URL=
-ETHERSCAN_API_KEY=
-PRIVATE_KEY=
-CONTRACT_ADDRESS= <you can add this after deploying a contract and copying its address>
-
-Deploy the project:
-$ make deploy ARGS="--network sepolia"
-
-Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
-
-Set the deployed contract address as a .env local variable
-CONTRACT_ADDRESS=**\_\_\_\_**
-Then refresh the terminal session's local variables from .env:
-$ source .env
-
-Map a username/address in the deployed contract:
-$ make mapGithubUsername
-
-Create and fund a bounty:
-$ make createAndFundBounty
-
-Manually call Functions request and payment:
-$ make performUpkeep
-
-### Design
+### Overview of files
 
 #### offchain/
 
@@ -213,6 +80,116 @@ HelperConfig.s.sol
 GitbountyTest.t.sol
 
 - Tests deployment and methods of GitBounty.sol (excluding Chainlink Functions request)
+
+### Setup
+
+#### Install
+
+Update dependencies:
+$ git submodule update --init --recursive
+
+Build:
+$ forge clean
+$ forge build
+
+Navigate to offchain/
+$ cd offchain
+
+Install the npm dependencies
+$ brew install python@3.11
+$ PYTHON=/usr/local/bin/python3.11 npm install
+
+#### Chainlink Services
+
+**Chainlink Functions**
+
+- create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
+- Get the subscription ID and set it in config/eth-sepolia.json
+
+**Chainlink Automation**
+
+- create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
+- Get the subscription ID and set it in HelperConfig.s.sol
+
+#### Environment variables
+
+##### .env Unencrypted Variables (config settings, public addresses)
+
+#. Navigate to project root
+#. Rename .env.example to .env, and set the variables.
+#. Any time .env is edited, save .env and run this to load it into the terminal session's context:
+$ source .env
+
+##### .env.enc Encrypted Variables (api secrets, private keys)
+
+Navigate to offchain/
+$ cd offchain
+
+Set the env-enc password for the first time (or enter an existing password, if env.enc already exists)
+$ npx env-enc set-pw
+
+Set the following keys/values as encrypted local variables
+$ npx env-enc set
+
+```
+GITHUB_SECRET -- set now
+GITHUB_SECRET_URL -- set later
+PRIVATE_KEY -- set now
+SEPOLIA_RPC_URL -- set now
+MAINNET_RPC_URL -- set now
+ETHERSCAN_API_KEY -- set now
+```
+
+#### Offchain secrets setup
+
+#. Navigate to offchain/
+$ cd offchain
+
+#. Run gen_offchain_secrets.js
+$ node gen_offchain_secrets.js
+
+- Generates offchain-secrets.json file containing encrypted GITHUB_SECRET from env-enc
+
+#. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
+
+#. Set the Amazon Web Bucket URL as an encrypted local variable
+$ npx env-enc set
+
+```
+GITHUB_SECRET_URL
+```
+
+#. Run encrypt_secrets_url.js
+$ node encrypt_secrets_url.js
+
+- Encrypts offchain-secrets.json amazon web bucket url and generates file 'encrypted-secrets-urls.sepolia.json' to be used by Deploy script later
+
+simulate_request.js
+
+- Tests the Chainlink Functions request to GitHub API
+
+#### Chainlink Services
+
+Set up .env local variables for the makefile:
+
+Deploy the project:
+$ make deploy ARGS="--network sepolia"
+
+Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
+
+Set the deployed contract address as a .env local variable
+CONTRACT_ADDRESS=**\_\_\_\_**
+Then refresh the terminal session's local variables from .env:
+$ source .env
+
+Map a username/address in the deployed contract:
+$ make mapGithubUsername
+
+Create and fund a bounty:
+$ make createAndFundBounty
+
+Manually call Functions request and payment:
+$ make performUpkeep
 
 ### Reference
 
