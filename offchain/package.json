@@ -13,5 +13,8 @@
     "ethers": "^5.7.2"
   },
   "keywords": [],
-  "description": ""
+  "description": "",
+  "engines": {
+  "node": ">=18 <21"
+  }
 }
