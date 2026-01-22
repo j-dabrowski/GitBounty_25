@@ -89,12 +89,11 @@ GitbountyTest.t.sol
 
 1. Update dependencies:
 
-   $ git submodule update --init --recursive
+   `git submodule update --init --recursive`
 
 2. Build:
-
-   $ forge clean
-   $ forge build
+   `forge clean`
+   `forge build`
 
 3. Navigate to offchain/
 
