@@ -2,18 +2,12 @@
 pragma solidity 0.8.19;
 
 /**
- * Gitbounty (Factory-compatible)
- * - NO FunctionsClient / NO Automation interface in the child
- * - Factory is the ONLY FunctionsClient and the ONLY Automation Upkeep target
+ * Gitbounty (GitBountyFactory-compatible)
  *
- * Child responsibilities:
+ * Responsibilities:
  *  - Hold funds + payout logic
  *  - Provide args to factory via getArgs()
  *  - Accept fulfillment from factory via onFunctionsFulfilled()
- *
- * Notes:
- *  - performUpkeep/checkUpkeep are removed (factory schedules attempts)
- *  - s_lastRequestId is still stored for sanity matching
  */
 interface IGitbountyFactory {
     function closeBounty(address bounty) external;
@@ -33,6 +27,7 @@ contract Gitbounty {
     error Gitbounty__NotOwner();
     error Gitbounty__UnexpectedRequestID(bytes32 requestId);
 
+
     /*//////////////////////////////////////////////////////////////
                                 TYPES
     //////////////////////////////////////////////////////////////*/
@@ -43,6 +38,7 @@ contract Gitbounty {
         CALCULATING,
         PAID
     }
+
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -56,6 +52,7 @@ contract Gitbounty {
         if (msg.sender != factory) revert Gitbounty__OnlyFactory();
         _;
     }
+
 
     /*//////////////////////////////////////////////////////////////
                                     STATE
@@ -418,7 +415,7 @@ contract Gitbounty {
         //  (b) add a "closeBountyFromChild" function in factory restricted to registered children.
         // try IGitbountyFactory(factory).closeBounty(address(this)) {} catch {}
     }
-    
+
 
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
