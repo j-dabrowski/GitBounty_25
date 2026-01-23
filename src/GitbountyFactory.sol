@@ -467,26 +467,31 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         nextAttemptAt[bounty] = block.timestamp;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                      OPTIONAL: FUNDING GLOBAL UPKEEP/SUB
-    //////////////////////////////////////////////////////////////*/
-    // These are OPTIONAL convenience functions. Whether they work depends on the exact network + registry/subscription manager.
-    // You can remove them if you want to keep this contract minimal.
+    function getBounties(uint256 start, uint256 limit)
+        external
+        view
+        returns (
+            address[] memory bountyAddresses,
+            uint256[] memory nextAttemptAts
+        )
+    {
+        uint256 total = bounties.length;
 
-    IERC20 public linkToken;
-    address public automationRegistry;
-    uint256 public automationUpkeepId;
+        if (limit == 0 || start >= total) {
+            return (new address[](0), new uint256[](0));
+        }
 
-    function setLinkAndAutomation(address _link, address _registry, uint256 _upkeepId) external onlyOwner {
-        linkToken = IERC20(_link);
-        automationRegistry = _registry;
-        automationUpkeepId = _upkeepId;
-    }
+        uint256 end = start + limit;
+        if (end > total) end = total;
 
-    /// @notice Fund the single Automation upkeep (requires LINK token + registry supporting transferAndCall funding).
-    function fundAutomationUpkeep(uint256 linkAmount) external onlyOwner {
-        // data format is registry-specific; many registries accept abi.encode(upkeepId)
-        bytes memory data = abi.encode(automationUpkeepId);
-        linkToken.transferAndCall(automationRegistry, linkAmount, data);
+        uint256 size = end - start;
+        bountyAddresses = new address[](size);
+        nextAttemptAts = new uint256[](size);
+
+        for (uint256 i = 0; i < size; i++) {
+            address bountyAddr = bounties[start + i];
+            bountyAddresses[i] = bountyAddr;
+            nextAttemptAts[i] = nextAttemptAt[bountyAddr];
+        }
     }
 }

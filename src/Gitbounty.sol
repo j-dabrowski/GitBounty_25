@@ -451,4 +451,45 @@ contract Gitbounty {
     function getLastResponse() external view returns (bytes memory) {
         return s_lastResponse;
     }
+
+    function getBountySnapshot()
+        external
+        view
+        returns (
+            GitbountyState r_state,
+            address r_owner,
+            address r_factory,
+            bool r_initialized,
+            string memory r_repoOwner,
+            string memory r_repo,
+            string memory r_issueNumber,
+            uint256 r_totalFunding,
+            uint256 r_funderCount,
+            address r_lastWinner,
+            string memory r_lastWinnerUser,
+            uint256 r_lastBountyAmount
+        )
+    {
+        // Explicit storage → memory copies
+        string memory repo_owner_ = repo_owner;
+        string memory repo_ = repo;
+        string memory issueNumber_ = issueNumber;
+        string memory lastWinnerUser_ = lastWinnerUser;
+
+        return (
+            s_gitbountyState,
+            owner,
+            factory,
+            initialized,
+            repo_owner_,
+            repo_,
+            issueNumber_,
+            s_totalFunding,
+            s_funderCount,
+            s_lastWinner,
+            lastWinnerUser_,
+            last_BountyAmount
+        );
+    }
+
 }

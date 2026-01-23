@@ -163,6 +163,16 @@ factoryPerformMany:
 		$(RPC_AND_KEY) \
 		--gas-limit 3000000 -vvvv
 
+factoryPerformFromData:
+	@if [ -z "$(DATA)" ]; then \
+		echo "Error: DATA not set (paste the bytes from checkUpkeep)"; \
+		echo "Example: make factoryPerformFromData DATA=0x..."; \
+		exit 1; \
+	fi
+	cast send $(FACTORY_ADDRESS) "performUpkeep(bytes)" "$(DATA)" \
+		$(RPC_AND_KEY) \
+		--gas-limit 3000000 -vvvv
+
 factoryBountyIsEligible:
 	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
 		echo "Error: BOUNTY_ADDRESS not set. Usage: make factoryBountyIsEligible BOUNTY_ADDRESS=0x..."; \
@@ -235,3 +245,41 @@ createBountyExisting:
 		--value $(BOUNTY_VALUE) \
 		$(RPC_AND_KEY) \
 		--gas-limit 1000000 -vvvv
+
+# ---------- Monitoring ----------
+
+# --- Factory helpers ---
+
+factoryBountiesCount:
+	@if [ -z "$(FACTORY_ADDRESS)" ]; then \
+		echo "Error: FACTORY_ADDRESS not set. Usage: make factoryBountiesCount FACTORY_ADDRESS=0x..."; \
+		exit 1; \
+	fi
+	cast call $(FACTORY_ADDRESS) \
+		"bountyCount()(uint256)" \
+		$(RPC_ONLY)
+
+START ?= 0
+LIMIT ?= 10
+
+factoryGetBounties:
+	@if [ -z "$(FACTORY_ADDRESS)" ]; then \
+		echo "Error: FACTORY_ADDRESS not set. Usage: make factoryGetBounties FACTORY_ADDRESS=0x... START=0 LIMIT=10"; \
+		exit 1; \
+	fi
+	cast call $(FACTORY_ADDRESS) \
+		"getBounties(uint256,uint256)(address[],uint256[])" \
+		$(START) $(LIMIT) \
+		$(RPC_ONLY)
+
+# --- Bounty helpers ---
+
+bountySnapshot:
+	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
+		echo "Error: BOUNTY_ADDRESS not set. Usage: make bountySnapshot BOUNTY_ADDRESS=0x..."; \
+		exit 1; \
+	fi
+	cast call $(BOUNTY_ADDRESS) \
+		"getBountySnapshot()(uint8,address,address,bool,string,string,string,uint256,uint256,address,string,uint256)" \
+		$(RPC_ONLY)
+
