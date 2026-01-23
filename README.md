@@ -503,9 +503,9 @@ check if correct values returned by script
 
 - Tested on sepolia creating 2 bounties via factory, changing maxPerform to 2, and manually performing upkeep on the two in one call, triggering two functions requests, which both suceeded and paid out from the bounty contracts successfully.
 
-#### To do
-
 - Document setup and deployment via offchain/, makefile commands and .env with source .env, give recommended .env values such as warnings disabled, variables I have now but with generated ones redacted for default generic .env to be put in readme.
+
+#### To do
 
 - When bounty is completed, paid and reset/cleared, have it flagged as empty, so if a web user or makefile user wants to create a new bounty, it reuses an existing deployed empty contract owned by that user, instead of deploying a whole new bounty contract.
 

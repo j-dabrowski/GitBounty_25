@@ -58,26 +58,32 @@ contract Gitbounty {
     }
 
     /*//////////////////////////////////////////////////////////////
-                                STATE
+                                    STATE
     //////////////////////////////////////////////////////////////*/
-    address public owner;
-    address public factory;
-    bool private initialized;
 
-    // Factory/Functions bookkeeping
-    bytes32 public s_lastRequestId;
-    bytes public s_lastResponse;
-    bytes public s_lastError;
+    /*//////////////////////////////////////////////////////////////
+    LIFECYCLE / CONTROL
+    - Persistent across all states (never cleared by payout/cancel)
+    //////////////////////////////////////////////////////////////*/
+    GitbountyState private s_gitbountyState; // BASE/EMPTY/READY/CALCULATING/PAID
+    address public owner;                   // persistent after initialise
+    address public factory;                 // persistent after initialise
+    bool private initialized;               // persistent after initialise
 
-    // Payment record keeping
-    string public lastWinnerUser;
-    string public last_repo_owner;
-    string public last_repo;
-    string public last_issueNumber;
-    uint256 public last_BountyAmount;
-    address private s_lastWinner;
+    /*//////////////////////////////////////////////////////////////
+    ACTIVE BOUNTY — CRITERIA
+    - Defines the currently-live bounty
+    - Cleared on: payout success + deleteAndRefundBounty + resetContract
+    //////////////////////////////////////////////////////////////*/
+    string private repo_owner;
+    string private repo;
+    string private issueNumber;
 
-    // Funding
+    /*//////////////////////////////////////////////////////////////
+    ACTIVE BOUNTY — FUNDING
+    - Tracks current-cycle contributions
+    - Cleared on: payout success + deleteAndRefundBounty + resetContract
+    //////////////////////////////////////////////////////////////*/
     mapping(address => uint256) private s_contributions;
     address[] private funders;
     mapping(address => bool) private s_inFundersList;
@@ -85,12 +91,29 @@ contract Gitbounty {
     uint256 private s_totalFunding;
     uint256 private s_funderCount;
 
-    // Bounty criteria
-    string private repo_owner;
-    string private repo;
-    string private issueNumber;
+    /*//////////////////////////////////////////////////////////////
+    FACTORY / FUNCTIONS TELEMETRY
+    - Most recent oracle request + response info (debug/audit)
+    - Overwritten on each fulfillment; cleared only on resetContract
+    //////////////////////////////////////////////////////////////*/
+    bytes32 public s_lastRequestId;
+    bytes public s_lastResponse;
+    bytes public s_lastError;
 
-    GitbountyState private s_gitbountyState;
+    /*//////////////////////////////////////////////////////////////
+    LAST COMPLETED BOUNTY — RECEIPT
+    - Most recent successful payout summary
+    - Written on: payout success
+    - Cleared only on resetContract
+    //////////////////////////////////////////////////////////////*/
+    address private s_lastWinner;
+    string public lastWinnerUser;
+
+    string public last_repo_owner;
+    string public last_repo;
+    string public last_issueNumber;
+    uint256 public last_BountyAmount;
+
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -100,6 +123,7 @@ contract Gitbounty {
     event BountyClaimed(address indexed winner, uint256 value);
 
     event Response(bytes32 indexed requestId, bytes response, bytes err);
+
 
     /*//////////////////////////////////////////////////////////////
                                 INIT
@@ -131,6 +155,7 @@ contract Gitbounty {
 
         initialized = true;
     }
+
 
     /*//////////////////////////////////////////////////////////////
                            BOUNTY LIFECYCLE
@@ -296,6 +321,7 @@ contract Gitbounty {
         s_funderCount = 0;
     }
 
+
     /*//////////////////////////////////////////////////////////////
                            FACTORY INTEGRATION
     //////////////////////////////////////////////////////////////*/
@@ -392,6 +418,7 @@ contract Gitbounty {
         //  (b) add a "closeBountyFromChild" function in factory restricted to registered children.
         // try IGitbountyFactory(factory).closeBounty(address(this)) {} catch {}
     }
+    
 
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
