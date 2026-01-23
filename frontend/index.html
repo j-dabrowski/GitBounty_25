@@ -60,70 +60,16 @@
             <div class="main-inner">
               <div class="button-group">
 
-                <div class="inner-panel">
-
-                  <div class="input-row">
-                    <label for="repoOwner">Repo Owner:</label>
-                    <input type="text" id="repoOwner" class="input" placeholder="j-dabrowski" disabled/>
-                  </div>
-                  <div class="input-row">
-                    <label for="repoName">Repo Name:</label>
-                    <input type="text" id="repoName" class="input" placeholder="Test_Repo_2025" disabled/>
-                  </div>
-                  <div class="input-row">
-                    <label for="issueNumber">Issue Number:</label>
-                    <input type="text" id="issueNumber" class="input" placeholder="216" disabled/>
-                  </div>
-                  <div class="input-row">
-                    <label for="ethAmount">ETH:</label>
-                    <input type="text" id="ethAmount" class="input" placeholder="0.001" disabled/>
-                  </div>
-                  <button id="createBountyButton" class="button kde" disabled>Create and Fund Bounty</button>
-                  
-                </div> 
-
-                <div class="inner-panel">
-                  <div class="monitor-group">
-
-                    <button id="refreshStatusButton" class="button kde" disabled>Refresh</button>
-                    <div id="status">Status: ...</div>
-                    
-                    <div id="lastClaimer" style="display: none;">Last Claimer: ...</div>
-                    <div id="lastBountyRepo" style="display: none;">Last Bounty Repo: ...</div>
-                    <div id="lastBountyIssue" style="display: none;">Last Bounty Issue: ...</div>
-                    <div id="lastClaimTime" style="display: none;">Last Claim Time: ...</div>
-                    <div id="lastBountyAmount" style="display: none;">Last Amount Claimed: ...</div>
-
-                    <div id="bountyRepo" style="display: none;">Bounty Repo: ...</div>
-                    <div id="bountyIssue" style="display: none;">Bounty Issue: ...</div>
-                    <div id="bountyAmount" style="display: none;">Amount: ...</div>
-                  
-                  </div>
+                <div class="inner-panel small span-2" id="factoryPanel">
+                  <div><strong>Gitbounty Factory</strong></div>
+                  <div id="factoryAddress"></div>
+                  <div id="factoryBountyCount"></div>
+                  <button id="refreshButton" class="button kde" disabled>Refresh</button>
                 </div>
 
-                <div class="inner-panel small">
-                  <div class="input-row">
-                    <label for="ethAmountExtra">ETH:</label>
-                    <input type="text" id="ethAmountExtra" class="input" placeholder="0.001" disabled/>
-                  </div>
-                  <button id="fundBountyButton" class="button kde" disabled>Fund Bounty</button>
+                <div class="inner-panel span-2" id="bountiesPanel">
+                  <div class="span-2" id="bountiesList"></div>
                 </div>
-
-                <div class="inner-panel small">
-                  <button id="withdrawFundButton" class="button kde" disabled>Withdraw Fund</button>
-                </div> 
-
-                <div class="inner-panel small">
-                  <div class="input-row">
-                    <label for="githubUsername">GitHub Username:</label>
-                    <input type="text" id="githubUsername" class="input" placeholder="j-dabrowski" disabled/>
-                  </div>
-                  <button id="mapUsernameButton" class="button kde" disabled>Map GitHub Username</button>
-                </div>
-
-                <div class="inner-panel small">
-                  <button id="resetContractButton" class="button kde" disabled>Reset Contract</button>
-                </div> 
 
               </div> 
             </div>
