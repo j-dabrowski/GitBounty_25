@@ -111,13 +111,13 @@ GitbountyTest.t.sol
 
 _Chainlink Functions_
 
-1. create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
-2. Get the subscription ID and set it in config/eth-sepolia.json
+1. Create a chainlink functions subscription and top it up with link token: https://functions.chain.link/sepolia/
+2. Get the subscription ID and store it in config/eth-sepolia.json
 
 _Chainlink Automation_
 
 1. Create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-2. Get the subscription ID and set it in config/eth-sepolia.json
+2. Get the subscription ID and store it in config/eth-sepolia.json
 
 #### Environment variables
 
@@ -325,26 +325,132 @@ Test start to finish (with automation)
 
 ### Deploy
 
-Set up .env local variables for the makefile:
+Navigate to the project root.
 
-Deploy the project:
-$ make deploy ARGS="--network sepolia"
+Check that the makefile can resolve secrets from .env.enc
 
-Get the deployed contract address and add it as a consumer of Chainlink Functions: https://functions.chain.link/sepolia/____
+`make checkSecrets`
 
-Set the deployed contract address as a .env local variable
-CONTRACT_ADDRESS=**\_\_\_\_**
-Then refresh the terminal session's local variables from .env:
-$ source .env
+Check that the makefile can resolve config args from .env
 
-Map a username/address in the deployed contract:
-$ make mapGithubUsername
+`make checkConfig`
 
-Create and fund a bounty:
-$ make createAndFundBounty
+Check that we are using Sepolia (Expected ID: 11155111)
 
-Manually call Functions request and payment:
-$ make performUpkeep
+`make checkNetwork`
+
+Deploy the GitBounty implementation (to be cloned by Factory later)
+
+`make deployBountyImpl`
+
+Set the GitBounty implementation's address as GITBOUNTY_IMPL in .env
+
+- Add to .env: `GITBOUNTY_IMPL=_______` <-- address
+
+Reload .env variables into the current working session
+
+`source .env`
+
+Deploy the GitBountyFactory contract
+
+`make deployFactory`
+
+Set the GitBountyFactory's address as FACTORY_ADDRESS in .env
+
+- Add to .env: `FACTORY_ADDRESS=_______` <-- address
+
+Reload .env variables into the current working session
+
+`source .env`
+
+Add the GitBountyFactory's address as a consumer of your Chainlink Functions subscription: https://functions.chain.link/sepolia/____
+
+Set your GitBounty arguments in .env (value 1000000000000000 = 0.001 eth)
+
+```
+REPO_OWNER=
+REPO=
+ISSUE_NUMBER=
+BOUNTY_VALUE=
+```
+
+`source .env`
+
+Deploy a GitBounty contract from your GitBountyFactory contract
+
+`deployBounty`
+
+Manually call Functions request and payment
+
+`make performUpkeep`
+
+#### Claim a bounty
+
+Map a github username / wallet address in the GitBountyFactory user registry:
+
+`make factoryMapUsername USERNAME=_______`
+
+Submit a branched PR to the bounty's GitHub repo, and wait for it to be merged into master, then Chainlink Automation can automatically trigger API check and payout, or run the API check and payout manually:
+
+`make factoryPerformSingle`
+
+#### Interactions
+
+Check a github username / wallet address is already mapped
+
+`make factoryCheckUsernameMap USERNAME=_______`
+
+Print the current bounty’s configured GitHub args (repo owner, repo name, issue number) from the child contract.
+
+`make bountyArgs BOUNTY_ADDRESS=0x...`
+
+Check whether the bounty is in a “ready to be paid out” state (isBountyReady()).
+
+`make checkBountyReady BOUNTY_ADDRESS=0x...`
+
+Simulate Chainlink Automation’s checkUpkeep against the Factory (returns (bool upkeepNeeded, bytes performData)).
+
+`make factoryCheckUpkeep`
+
+Manually trigger performUpkeep on the Factory for one bounty (encodes the single address into the bytes payload).
+
+`make factoryPerformSingle BOUNTY_ADDRESS=0x...`
+
+Manually trigger performUpkeep on the Factory for multiple bounties in one transaction.
+Provide a comma-separated list of bounty addresses.
+
+`make factoryPerformMany BOUNTY_ADDRESS=0xA...,0xB...,0xC...`
+
+Check whether a specific bounty is eligible for automation processing (isEligible(address)).
+
+`make factoryBountyIsEligible BOUNTY_ADDRESS=0x...`
+
+Get a full eligibility breakdown for a bounty (registered/open/inFlight/timeOk/childReady/nextAttemptAt) via eligibilityBreakdown(...).
+
+`make factoryEligibilityBreakdown BOUNTY_ADDRESS=0x...`
+
+Resolve and print the event signatures for all logs in a transaction receipt (uses the Factory ABI + topic0 hashes).
+Useful for quickly identifying which events fired.
+
+`make checkEvent EVENT=0x...`
+
+Confirm which Factory address a bounty is wired to (factory() on the child).
+
+`make checkBountyHasFactory BOUNTY_ADDRESS=0x...`
+
+Update Factory automation tuning parameters:
+
+RETRY_INTERVAL — cooldown between attempts per bounty (seconds)
+
+MAX_SCAN — max bounties scanned per upkeep
+
+MAX_PERFORM — max bounties processed per upkeep
+
+`make setAutomationParams RETRY_INTERVAL=300 MAX_SCAN=50 MAX_PERFORM=2`
+
+Create and fund a bounty on an existing deployed child contract, sending BOUNTY_VALUE as msg.value and setting the GitHub issue coordinates.
+
+`make createBountyExisting BOUNTY_ADDRESS=0x... REPO_OWNER=... REPO=... ISSUE_NUMBER=... BOUNTY_VALUE=...`
 
 ---
 

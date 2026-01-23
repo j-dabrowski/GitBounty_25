@@ -1,10 +1,13 @@
 -include .env
 export
 
-# Helper: gets secret from env-enc
-ENV_ENC_PATH ?= offchain/.env.enc
+# ---------------- env-enc (installed in offchain/) ----------------
+OFFCHAIN_DIR ?= offchain/
+ENV_ENC_PATH ?= .env.enc
+
+# Helper: read a variable from offchain/.env.enc using env-enc installed in offchain/node_modules
 define envenc
-node -e 'const envEnc=require("@chainlink/env-enc"); envEnc.config({path:"$(ENV_ENC_PATH)"}); process.stdout.write(process.env.$(1)||"")'
+cd $(OFFCHAIN_DIR) && node -e 'const envEnc=require("@chainlink/env-enc"); envEnc.config({path:"$(ENV_ENC_PATH)"}); process.stdout.write(process.env.$(1)||"")'
 endef
 
 # Get secrets from offchain/.env.enc (everything else stored in .env)
@@ -42,6 +45,47 @@ endif
 .PHONY: deployFactory deployBounty \
 	factoryPerformSingle factoryCheckUpkeep factoryMapUsername \
 	bountyCreateAndFund
+
+.PHONY: checkSecrets checkConfig
+
+# ---------- Check Secrets ----------
+
+# Check that env-enc secrets resolve (does NOT print secret values)
+checkSecrets:
+	@echo "Checking env-enc secrets..."
+	@ok=1; \
+	for v in GITHUB_SECRET GITHUB_SECRET_URL SEPOLIA_RPC_URL MAINNET_RPC_URL ETHERSCAN_API_KEY PRIVATE_KEY; do \
+		val="$$(cd $(OFFCHAIN_DIR) && node -e 'const envEnc=require("@chainlink/env-enc"); envEnc.config({path:"$(ENV_ENC_PATH)"}); process.stdout.write(process.env["'$$v'"]||"")')"; \
+		if [ -z "$$val" ]; then echo "FAIL: $$v is empty"; ok=0; fi; \
+	done; \
+	if [ "$$ok" -eq 1 ]; then echo "OK: env-enc secrets resolved"; else exit 1; fi
+
+# Check that .env config resolves (prints values)
+checkConfig:
+	@echo "Checking .env config variables..."
+	@echo "--------------------------------"
+	@echo "FOUNDRY_DISABLE_NIGHTLY_WARNING=$(FOUNDRY_DISABLE_NIGHTLY_WARNING)"
+	@echo "GITBOUNTY_IMPL=$(GITBOUNTY_IMPL)"
+	@echo "FACTORY_ADDRESS=$(FACTORY_ADDRESS)"
+	@echo "BOUNTY_ADDRESS=$(BOUNTY_ADDRESS)"
+	@echo "EVENT=$(EVENT)"
+	@echo "REPO_OWNER=$(REPO_OWNER)"
+	@echo "REPO=$(REPO)"
+	@echo "ISSUE_NUMBER=$(ISSUE_NUMBER)"
+	@echo "BOUNTY_VALUE=$(BOUNTY_VALUE)"
+	@echo "--------------------------------"
+	@missing=""; \
+	for v in GITBOUNTY_IMPL FACTORY_ADDRESS BOUNTY_ADDRESS REPO_OWNER REPO ISSUE_NUMBER BOUNTY_VALUE; do \
+		val="$$(eval echo \$$$${v})"; \
+		if [ -z "$$val" ]; then missing="$$missing $$v"; fi; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "FAIL: missing or empty config values:"; \
+		for m in $$missing; do echo "  - $$m"; done; \
+		exit 1; \
+	else \
+		echo "OK: .env config resolved correctly"; \
+	fi
 
 # ---------- Deploy ----------
 
