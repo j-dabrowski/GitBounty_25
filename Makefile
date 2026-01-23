@@ -173,6 +173,20 @@ factoryPerformFromData:
 		$(RPC_AND_KEY) \
 		--gas-limit 3000000 -vvvv
 
+factoryCheckAndPerform:
+	@OUT=$$(cast call $(FACTORY_ADDRESS) "checkUpkeep(bytes)(bool,bytes)" 0x $(RPC_ONLY)); \
+	ELIGIBLE=$$(echo "$$OUT" | sed -n '1p' | tr -d '\r'); \
+	DATA=$$(echo "$$OUT" | sed -n '2p' | tr -d '\r'); \
+	echo "$$ELIGIBLE"; \
+	echo "$$DATA"; \
+	if [ "$$ELIGIBLE" != "true" ]; then \
+		echo "No upkeep needed."; \
+		exit 0; \
+	fi; \
+	cast send $(FACTORY_ADDRESS) "performUpkeep(bytes)" "$$DATA" \
+		$(RPC_AND_KEY) \
+		--gas-limit 3000000 -vvvv
+
 factoryBountyIsEligible:
 	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
 		echo "Error: BOUNTY_ADDRESS not set. Usage: make factoryBountyIsEligible BOUNTY_ADDRESS=0x..."; \
