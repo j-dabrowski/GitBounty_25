@@ -36,6 +36,7 @@ function setConnectedUI(chainId) {
   pressButton(connectButton, true);
   connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
   refreshButton.disabled = false;
+  createBountyButton.disabled = false;
 }
 
 function setDisconnectedUI() {
@@ -43,8 +44,10 @@ function setDisconnectedUI() {
   pressButton(connectButton, false);
   connectButton.innerHTML = "Connect Wallet";
   refreshButton.disabled = true;
-  factoryAddressEl.textContent = "Address: …";
-  factoryBountyCountEl.textContent = "Bounties: …";
+  createBountyButton.disabled = true;
+  if (createBountyStatus) createBountyStatus.textContent = "";
+  factoryAddressEl.textContent = "Address: ...";
+  factoryBountyCountEl.textContent = "Bounties: ...";
   bountiesListEl.innerHTML = "";
 }
 
@@ -233,3 +236,82 @@ function renderBountyRow(base, snap, err) {
   return row;
 }
 
+// Create bounty UI
+const repoOwnerInput = document.getElementById("repoOwnerInput");
+const repoInput = document.getElementById("repoInput");
+const issueNumberInput = document.getElementById("issueNumberInput");
+const fundingEthInput = document.getElementById("fundingEthInput");
+const createBountyButton = document.getElementById("createBountyButton");
+const createBountyStatus = document.getElementById("createBountyStatus");
+
+createBountyButton.onclick = createBountyFromUI;
+
+function setCreateStatus(msg) {
+  if (!createBountyStatus) return;
+  createBountyStatus.textContent = msg || "";
+  createBountyStatus.title = msg || "";
+}
+
+function readInput(el) {
+  return (el?.value || "").trim();
+}
+
+async function createBountyFromUI() {
+  if (!factory || !signer) {
+    setCreateStatus("Connect wallet first.");
+    return;
+  }
+
+  const repoOwner = readInput(repoOwnerInput);
+  const repo = readInput(repoInput);
+  const issueNumber = readInput(issueNumberInput);
+  const fundingEth = readInput(fundingEthInput);
+
+  if (!repoOwner || !repo || !issueNumber) {
+    setCreateStatus("Repo owner, repo, and issue # are required.");
+    return;
+  }
+  if (!fundingEth) {
+    setCreateStatus("Funding is required (must be > 0).");
+    return;
+  }
+
+  let value;
+  try {
+    value = ethers.parseEther(fundingEth);
+    if (value <= 0n) throw new Error("Funding must be > 0");
+  } catch {
+    setCreateStatus("Invalid funding amount.");
+    return;
+  }
+
+  createBountyButton.disabled = true;
+  setCreateStatus("Sending transaction…");
+
+  try {
+    const tx = await factory.createBounty(repoOwner, repo, issueNumber, { value });
+    setCreateStatus(`Tx sent: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    let bountyAddr = null;
+
+    // Parse BountyDeployed event if present
+    for (const log of receipt.logs || []) {
+      try {
+        const parsed = factory.interface.parseLog(log);
+        if (parsed?.name === "BountyDeployed") {
+          bountyAddr = parsed.args?.bounty;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    setCreateStatus(bountyAddr ? `Created: ${bountyAddr}` : "Confirmed. Refreshing…");
+    await loadFactoryView();
+  } catch (err) {
+    console.error(err);
+    setCreateStatus((err && (err.shortMessage || err.message)) || "Transaction failed");
+  } finally {
+    createBountyButton.disabled = !currentAccount;
+  }
+}

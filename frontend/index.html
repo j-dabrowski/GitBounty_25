@@ -60,6 +60,30 @@
             <div class="main-inner">
               <div class="button-group">
 
+                <div class="inner-panel span-2" id="createBountyPanel">
+                <div><strong>Create Bounty</strong></div>
+
+                <div class="form-grid">
+                  <label for="repoOwnerInput">Repo owner</label>
+                  <input id="repoOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
+
+                  <label for="repoInput">Repo</label>
+                  <input id="repoInput" type="text" placeholder="e.g. GitBounty_25" />
+
+                  <label for="issueNumberInput">Issue #</label>
+                  <input id="issueNumberInput" type="text" placeholder="e.g. 4" />
+
+                  <label for="fundingEthInput">Funding (ETH)</label>
+                  <input id="fundingEthInput" type="text" placeholder="e.g. 0.001" />
+                </div>
+
+                <div class="panel-actions">
+                  <button id="createBountyButton" class="button kde" disabled>Create</button>
+                  <div id="createBountyStatus" class="status-line"></div>
+                </div>
+
+              </div>
+
                 <div class="inner-panel small span-2" id="factoryPanel">
                   <div><strong>Gitbounty Factory</strong></div>
                   <div id="factoryAddress"></div>

@@ -21,7 +21,7 @@ html, body {
 
 #app {
     height: auto;
-    width: 750px;
+    width: 1200px;
     margin: 80px auto;
     display: flex;
     flex-direction: column;
@@ -361,6 +361,12 @@ input[type="text"] {
 
 /* Make the bounties panel tall, and let its list fill the space */
 .inner-panel:not(.small) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make the bounties panel tall, and let its list fill the space */
+#bountiesPanel {
   height: 700px;
   display: flex;
   flex-direction: column;
@@ -416,3 +422,32 @@ input[type="text"] {
   white-space: nowrap;
 }
 
+/* Create bounty panel: compact form layout */
+#createBountyPanel {
+  height: 260px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

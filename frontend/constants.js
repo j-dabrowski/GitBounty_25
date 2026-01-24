@@ -13,7 +13,9 @@ export const factoryAddress = "0xf6C968e06747B92881208c45285A7Cd2689A7a54";
 
 export const factoryAbi = [
   "function bountyCount() view returns (uint256)",
-  "function getBounties(uint256 start, uint256 limit) view returns (address[] bountyAddresses, uint256[] nextAttemptAts)"
+  "function getBounties(uint256 start, uint256 limit) view returns (address[] bountyAddresses, uint256[] nextAttemptAts)",
+  "function createBounty(string _repoOwner, string _repo, string _issueNumber) payable returns (address bountyAddr)",
+  "event BountyDeployed(address indexed bounty, address indexed bountyOwner)"
 ];
 
 export const bountyAbi = [
