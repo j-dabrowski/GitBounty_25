@@ -6,14 +6,27 @@ let provider;
 let signer;
 let factory;
 
-const connectButton = document.getElementById("connectButton");
 const factoryAddressEl = document.getElementById("factoryAddress");
 const factoryBountyCountEl = document.getElementById("factoryBountyCount");
 const bountiesListEl = document.getElementById("bountiesList");
-const refreshButton = document.getElementById("refreshButton");
 
+
+const repoOwnerInput = document.getElementById("repoOwnerInput");
+const repoInput = document.getElementById("repoInput");
+const issueNumberInput = document.getElementById("issueNumberInput");
+const fundingEthInput = document.getElementById("fundingEthInput");
+const createBountyStatus = document.getElementById("createBountyStatus");
+
+// Buttons
+const connectButton = document.getElementById("connectButton");
+const refreshButton = document.getElementById("refreshButton");
+const createBountyButton = document.getElementById("createBountyButton");
+
+// Button click events
 connectButton.onclick = connect;
 refreshButton.onclick = loadFactoryView;
+createBountyButton.onclick = createBountyFromUI;
+
 
 function pressButton(button, status) {
   button.classList.toggle("pressed", status);
@@ -21,7 +34,7 @@ function pressButton(button, status) {
 
 function shortAddr(addr) {
   if (!addr) return "";
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
 function fmtTs(ts) {
@@ -237,14 +250,7 @@ function renderBountyRow(base, snap, err) {
 }
 
 // Create bounty UI
-const repoOwnerInput = document.getElementById("repoOwnerInput");
-const repoInput = document.getElementById("repoInput");
-const issueNumberInput = document.getElementById("issueNumberInput");
-const fundingEthInput = document.getElementById("fundingEthInput");
-const createBountyButton = document.getElementById("createBountyButton");
-const createBountyStatus = document.getElementById("createBountyStatus");
 
-createBountyButton.onclick = createBountyFromUI;
 
 function setCreateStatus(msg) {
   if (!createBountyStatus) return;
