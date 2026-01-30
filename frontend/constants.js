@@ -9,6 +9,13 @@ export const chainIdMap = {
   "0x144": "Blast Sepolia",
 };
 
+export const READ_RPC_URLS = [
+  "https://rpc.sepolia.org",
+  "https://rpc.ankr.com/eth_sepolia",
+  "https://ethereum-sepolia.publicnode.com",
+  "https://sepolia.drpc.org",
+];
+
 export const factoryAddress = "0xf6C968e06747B92881208c45285A7Cd2689A7a54";
 
 export const factoryAbi = [
