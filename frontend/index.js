@@ -535,3 +535,8 @@ async function startup() {
 }
 
 startup();
+
+// vercel
+//const url = `/api/issues?owner=${owner}&repo=${repo}&page=1&per_page=30`;
+//const data = await fetch(url).then(r => r.json());
+
