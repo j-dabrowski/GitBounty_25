@@ -1,50 +1,74 @@
 export default async function handler(req, res) {
+  const token = (process.env.GITHUB_TOKEN || "").trim();
+
+  // 1) Fail hard if missing
+  if (!token) {
+    return res.status(500).json({
+      ok: false,
+      error: "GITHUB_TOKEN_MISSING",
+      message:
+        "Server is not configured with a GitHub token. Set GITHUB_TOKEN in Vercel env vars.",
+    });
+  }
+
+  // (Optional) Validate query params
   const { owner, repo } = req.query;
-  const state = req.query.state || "open";
-  const page = Math.max(1, Number(req.query.page || "1"));
-  const per_page = Math.min(100, Math.max(1, Number(req.query.per_page || "30")));
-
-  if (!owner || !repo) return res.status(400).json({ error: "Missing owner/repo" });
-
-  const ghUrl = new URL(`https://api.github.com/repos/${owner}/${repo}/issues`);
-  ghUrl.searchParams.set("state", state);
-  ghUrl.searchParams.set("page", String(page));
-  ghUrl.searchParams.set("per_page", String(per_page));
-
-  const headers = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "gitbounty-issue-browser",
-  };
-
-  // Optional: add later in Vercel env vars
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  if (!owner || !repo) {
+    return res.status(400).json({
+      ok: false,
+      error: "BAD_REQUEST",
+      message: "Missing required query params: owner, repo",
+    });
   }
 
-  const ghRes = await fetch(ghUrl.toString(), { headers });
+  // 2) Always send auth
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=100`;
 
+  const ghRes = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "gitbounty-vercel-api",
+    },
+  });
+
+  // 3) Fail hard on auth/rate/permissions problems
   if (!ghRes.ok) {
-    const text = await ghRes.text();
-    return res.status(ghRes.status).json({ error: "GitHub request failed", details: text });
+    const text = await ghRes.text().catch(() => "");
+    const status = ghRes.status;
+
+    // Helpful diagnostics to bubble up
+    const diagnostic = {
+      ok: false,
+      error:
+        status === 401
+          ? "GITHUB_TOKEN_INVALID"
+          : status === 403
+          ? "GITHUB_FORBIDDEN_OR_RATE_LIMIT"
+          : "GITHUB_REQUEST_FAILED",
+      message: `GitHub API responded with ${status} ${ghRes.statusText}`,
+      githubStatus: status,
+      // These headers are super useful when debugging 403/rate issues
+      rateLimit: {
+        limit: ghRes.headers.get("x-ratelimit-limit"),
+        remaining: ghRes.headers.get("x-ratelimit-remaining"),
+        reset: ghRes.headers.get("x-ratelimit-reset"),
+      },
+      // Expose a small snippet (avoid dumping huge HTML)
+      bodySnippet: text.slice(0, 400),
+    };
+
+    // Choose whether you want 500 or passthrough status:
+    // - passthrough keeps it explicit (401/403)
+    // - 500 makes it obvious "server misconfigured"
+    return res.status(status).json(diagnostic);
   }
 
-  const items = await ghRes.json();
-  const issuesOnly = items
-    .filter((x) => !x.pull_request)
-    .map((x) => ({
-      number: x.number,
-      title: x.title,
-      body: x.body || "",
-      state: x.state,
-      html_url: x.html_url,
-      created_at: x.created_at,
-      updated_at: x.updated_at,
-      labels: (x.labels || []).map((l) => (typeof l === "string" ? l : l.name)),
-      author: x.user?.login || null,
-      comments: x.comments ?? 0,
-    }));
+  const issues = await ghRes.json();
 
-  // Light caching hint (Vercel may respect / propagate; still helpful)
-  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-  return res.status(200).json({ owner, repo, state, page, per_page, items: issuesOnly });
+  return res.status(200).json({
+    ok: true,
+    issues,
+  });
 }
