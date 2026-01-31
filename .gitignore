@@ -32,4 +32,5 @@ folder_structure.txt
 
 offchain/encrypted-secrets-urls.sepolia.json
 .vercel
+.vercel/
 .env*.local
