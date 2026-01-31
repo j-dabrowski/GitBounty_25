@@ -536,7 +536,8 @@ async function startup() {
 
 startup();
 
-// vercel
+// vercel serverless function
+// http://localhost:3000/api/issues?owner=j-dabrowski&repo=GitBounty_25&per_page=5
 //const url = `/api/issues?owner=${owner}&repo=${repo}&page=1&per_page=30`;
 //const data = await fetch(url).then(r => r.json());
 

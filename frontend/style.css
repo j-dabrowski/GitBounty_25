@@ -17,21 +17,19 @@
 html, body {
     height: 100%;
     margin: 0;
+      overflow-x: hidden;
 }
 
 #app {
-    height: auto;
-    width: 1200px;
-    margin: 80px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
+  box-shadow: 4px 4px 6px rgba(0, 0, 0, 0.25);
 
-#app {
-    box-shadow: 4px 4px 6px rgba(0, 0, 0, 0.25);
-  }
+  width: min(1200px, calc(100% - 24px));
+  margin: clamp(12px, 3vh, 80px) auto;
+
+  display: flex;
+  flex-direction: column;
+}
+
 
 #app-header {
     width: 100%;
@@ -212,50 +210,6 @@ body.kde-pattern {
   height: 330px;
 }
 
-/* Small top panel: one-line toolbar for factory address + refresh */
-.inner-panel.small{
-  height: 50px;                 /* target height */
-  padding: 6px 10px;            /* shrink padding */
-  display: flex;
-  flex-direction: row;          /* one line */
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  overflow: hidden;             /* keep it tight */
-}
-
-/* Make text elements not force height */
-.inner-panel.small *{
-  line-height: 1.1;
-}
-
-/* Layout for the row that contains address + refresh button */
-.inner-panel.small #factoryPanel > div:nth-child(2){
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;                 /* allow ellipsis */
-}
-
-/* Keep the address on the left, single-line ellipsis */
-.inner-panel.small #factoryAddress{
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Keep the refresh button on the right and not squish */
-.inner-panel.small #refreshButton{
-  flex: 0 0 auto;
-  white-space: nowrap;
-  padding: 3px 10px;            /* slightly tighter than normal */
-}
-
-
 .inner-panel label,
 .inner-panel input,
 .inner-panel button,
@@ -297,14 +251,14 @@ input[type="text"] {
   }  
 
 
-  .button-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px; /* spacing between boxes */
-    width: 100%;
-    max-width: 600px;
-    margin: 0 auto;
-  }
+.button-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
 
   .button.kde {
     background: linear-gradient(to bottom, #e8e8e8 0%, #d0d0d0 95%);
@@ -365,21 +319,6 @@ input[type="text"] {
   flex-direction: column;
 }
 
-/* Make the bounties panel tall, and let its list fill the space */
-#bountiesPanel {
-  height: 700px;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Let the list expand and scroll */
-#bountiesList {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  max-height: none;
-  padding-right: 6px;
-}
-
 .bounty-row {
   background-color: var(--kde-panel);
   border: 1px solid var(--kde-border);
@@ -394,32 +333,6 @@ input[type="text"] {
   font-family: ui-monospace, monospace;
   font-size: 12px;
   word-break: break-all;
-}
-
-
-/* Factory panel: put Address + Bounties on one line */
-#factoryPanel > div:nth-child(2) {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: nowrap;
-}
-
-/* Keep the address from wrapping too aggressively */
-#factoryAddress {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Keep bounty count tight on the right */
-#factoryBountyCount {
-  flex: 0 0 auto;
-  white-space: nowrap;
 }
 
 /* Create bounty panel: compact form layout */
@@ -486,3 +399,61 @@ input[type="text"] {
   to { transform: rotate(360deg); }
 }
 
+/* Combined panel */
+#bountiesPanel {
+  height: 700px;              /* whatever you like */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Header row inside the panel */
+#bountiesPanel .panel-header {
+  height: 50px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  background: transparent;     /* keep it "inside" the grey panel */
+  border-bottom: 1px solid var(--kde-border);
+  box-shadow: inset 0 -1px 0 var(--kde-highlight);
+}
+
+/* Title left */
+#bountiesPanel .panel-title {
+  white-space: nowrap;
+}
+
+/* Address + count in the middle */
+#bountiesPanel .panel-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Ellipsis address */
+#factoryAddress {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Count stays tight */
+#factoryBountyCount {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* List fills remaining space and scrolls */
+#bountiesList {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 6px;
+}

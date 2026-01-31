@@ -107,6 +107,13 @@ GitbountyTest.t.sol
 
    `PYTHON=/usr/local/bin/python3.11 npm install`
 
+5. Install and run vercel
+
+- Navigate to project root
+- `npm install -g vercel`
+- `vercel login`
+- `vercel dev`
+
 #### Chainlink Services
 
 _Chainlink Functions_

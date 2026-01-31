@@ -60,7 +60,7 @@
             <div class="main-inner">
               <div class="button-group">
 
-                <div class="inner-panel span-2" id="createBountyPanel">
+                <div class="inner-panel" id="createBountyPanel">
                 <div><strong>Create Bounty</strong></div>
 
                 <div class="form-grid">
@@ -84,16 +84,20 @@
 
               </div>
 
-                <div class="inner-panel small span-2" id="factoryPanel">
-                  <div><strong>Gitbounty Factory</strong></div>
-                  <div id="factoryAddress"></div>
-                  <div id="factoryBountyCount"></div>
+              <div class="inner-panel" id="bountiesPanel">
+                <div class="panel-header" id="factoryPanel">
+                  <div class="panel-title"><strong>Gitbounty Factory</strong></div>
+
+                  <div class="panel-meta">
+                    <div id="factoryAddress" class="mono"></div>
+                    <div id="factoryBountyCount"></div>
+                  </div>
+
                   <button id="refreshButton" class="button kde" disabled>Refresh</button>
                 </div>
 
-                <div class="inner-panel span-2" id="bountiesPanel">
-                  <div class="span-2" id="bountiesList"></div>
-                </div>
+                <div id="bountiesList"></div>
+              </div>
 
               </div> 
             </div>
