@@ -114,6 +114,29 @@ GitbountyTest.t.sol
 - `vercel login`
 - `vercel dev`
 
+6. Setup vercel environment variables
+
+- Create a github token (read only) for reading public repositories - the vercel serverless function will use it to get a list of issues per repo.
+
+- Set up vercel env variables to sync with online vercel environment
+
+mark as non-sensitive
+
+`vercel env add GITHUB_TOKEN development`
+
+mark each as sensitive
+
+`vercel env add GITHUB_TOKEN preview`
+`vercel env add GITHUB_TOKEN production`
+
+- Sanity check they're set:
+
+`vercel env ls`
+
+- Run the project locally with env vars injected
+
+`vercel env run -- vercel dev`
+
 #### Chainlink Services
 
 _Chainlink Functions_

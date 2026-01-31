@@ -418,7 +418,7 @@ async function loadIssuesFromUI() {
       return;
     }
 
-    const items = Array.isArray(data.items) ? data.items : [];
+    const items = Array.isArray(data.issues) ? data.issues : [];
 
     if (items.length === 0) {
       setIssuesStatus("No issues found.");
