@@ -1,5 +1,5 @@
 import { ethers } from "./ethers-6.7.esm.min.js";
-import { factoryAddress, factoryAbi, bountyAbi, chainIdMap, READ_RPC_URLS } from "./constants.js";
+import { factoryAddress, factoryAbi, bountyAbi, chainIdMap, READ_RPC_URLS, API_ORIGIN } from "./constants.js";
 
 /* =====================================================================
     GLOBAL RUNTIME STATE
@@ -18,6 +18,8 @@ let readFactory;
 // BOUNTY STATE LABELS
 const BOUNTY_STATE = ["BASE", "EMPTY", "READY", "CALCULATING", "PAID"];
 
+const apiOrigin = API_ORIGIN || window.location.origin;
+
 /* =====================================================================
     DOM REFERENCES
 ===================================================================== */
@@ -27,24 +29,30 @@ const factoryAddressEl = document.getElementById("factoryAddress");
 const factoryBountyCountEl = document.getElementById("factoryBountyCount");
 const bountiesListEl = document.getElementById("bountiesList");
 
-// CREATE BOUNTY FORM REFERENCES
-const repoOwnerInput = document.getElementById("repoOwnerInput");
-const repoInput = document.getElementById("repoInput");
-const issueNumberInput = document.getElementById("issueNumberInput");
-const fundingEthInput = document.getElementById("fundingEthInput");
-const createBountyStatus = document.getElementById("createBountyStatus");
-
 // BUTTONS
 const connectButton = document.getElementById("connectButton");
 const refreshButton = document.getElementById("refreshButton");
-const createBountyButton = document.getElementById("createBountyButton");
+
+// ISSUE BROWSER REFERENCES
+const issuesOwnerInput = document.getElementById("issuesOwnerInput");
+const issuesRepoInput = document.getElementById("issuesRepoInput");
+const issuesStateSelect = document.getElementById("issuesStateSelect");
+const loadIssuesButton = document.getElementById("loadIssuesButton");
+const createFromSelectedButton = document.getElementById("createFromSelectedButton");
+const issuesStatus = document.getElementById("issuesStatus");
+const issuesListEl = document.getElementById("issuesList");
+const issuesFundingEthInput = document.getElementById("issuesFundingEthInput");
+
+// Issue selection state
+let selectedIssue = null; // { owner, repo, number, title, body }
 
 /* =====================================================================
     EVENTS
 ===================================================================== */
 connectButton.onclick = connect;
 refreshButton.onclick = loadBountiesView;
-createBountyButton.onclick = createBountyFromUI;
+if (loadIssuesButton) loadIssuesButton.onclick = loadIssuesFromUI;
+if (createFromSelectedButton) createFromSelectedButton.onclick = createBountyFromSelected;
 
 /* =====================================================================
     UI HELPERS
@@ -124,17 +132,27 @@ function setConnectedUI(chainId) {
   pressButton(connectButton, true);
   connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
   refreshButton.disabled = false;
-  createBountyButton.disabled = false;
+  updateCreateControls();
 }
 
 // UI STATE — DISCONNECTED / RESET VIEW
 // Clears wallet state and resets UI back to “not connected”
 function setDisconnectedUI() {
   currentAccount = null;
+  selectedIssue = null;
+
   pressButton(connectButton, false);
   connectButton.innerHTML = "Connect Wallet";
-  createBountyButton.disabled = true;
-  if (createBountyStatus) createBountyStatus.textContent = "";
+
+  // Disable create-from-selection
+  if (createFromSelectedButton) createFromSelectedButton.disabled = true;
+
+  // Clear issue UI status + button label
+  setIssuesStatus("");
+  if (createFromSelectedButton) createFromSelectedButton.textContent = "Create bounty";
+
+  // Optional: clear selection highlight
+  document.querySelectorAll(".issue-row.selected").forEach((el) => el.classList.remove("selected"));
 }
 
 // METAMASK EVENT HANDLING - ACCOUNT SWITCH
@@ -349,6 +367,207 @@ async function loadBountiesView({ write = false } = {}) {
   }
 }
 
+function setIssuesLoading(isLoading) {
+  if (!issuesListEl) return;
+  issuesListEl.classList.toggle("is-loading", isLoading);
+}
+
+function setIssuesStatus(msg) {
+  if (!issuesStatus) return;
+  issuesStatus.textContent = msg || "";
+  issuesStatus.title = msg || "";
+}
+
+async function loadIssuesFromUI() {
+  if (!issuesOwnerInput || !issuesRepoInput || !issuesListEl) return;
+
+  const owner = readInput(issuesOwnerInput);
+  const repo = readInput(issuesRepoInput);
+  const state = (issuesStateSelect?.value || "open").trim();
+
+  if (!owner || !repo) {
+    setIssuesStatus("Enter repo owner + repo.");
+    return;
+  }
+
+  setIssuesLoading(true);
+  setIssuesStatus("Loading issues…");
+  selectedIssue = null;
+  if (createFromSelectedButton) createFromSelectedButton.textContent = "Create bounty";
+  updateCreateControls();
+
+  try {
+    const url = new URL("/api/issues", apiOrigin);
+    url.searchParams.set("owner", owner);
+    url.searchParams.set("repo", repo);
+    url.searchParams.set("state", state);
+    url.searchParams.set("per_page", "50");
+
+    const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const msg = data?.error
+        ? `${data.error}${data.details ? ": " + data.details : ""}`
+        : `HTTP ${res.status}`;
+      setIssuesStatus(msg);
+      issuesListEl.replaceChildren(Object.assign(document.createElement("div"), {
+        className: "bounty-row",
+        innerHTML: `<em>${msg}</em>`,
+      }));
+      return;
+    }
+
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    if (items.length === 0) {
+      setIssuesStatus("No issues found.");
+      issuesListEl.replaceChildren(Object.assign(document.createElement("div"), {
+        className: "bounty-row",
+        innerHTML: `<em>No issues found.</em>`,
+      }));
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const issue of items) frag.appendChild(renderIssueRow({ owner, repo, issue }));
+    issuesListEl.replaceChildren(frag);
+
+    setIssuesStatus(`Loaded ${items.length} issues.`);
+  } catch (err) {
+    console.error(err);
+    setIssuesStatus((err && (err.shortMessage || err.message)) || "Failed to load issues");
+  } finally {
+    setIssuesLoading(false);
+    updateCreateControls();
+  }
+}
+
+function renderIssueRow({ owner, repo, issue }) {
+  const row = document.createElement("div");
+  row.className = "issue-row";
+
+  const labels = (issue.labels || []).slice(0, 6).join(", ");
+  const body = (issue.body || "").trim();
+
+  row.innerHTML = `
+    <div class="issue-title">#${issue.number} — ${escapeHtml(issue.title || "")}</div>
+    <div class="issue-meta">
+      <span>state: ${issue.state || "—"}</span>
+      <span>author: ${issue.author || "—"}</span>
+      <span>comments: ${issue.comments ?? 0}</span>
+      ${labels ? `<span>labels: ${escapeHtml(labels)}</span>` : ""}
+    </div>
+    ${body ? `<div class="issue-body">${escapeHtml(body)}</div>` : ""}
+  `;
+
+  row.addEventListener("click", () => selectIssue({ owner, repo, issue }, row));
+  return row;
+}
+
+function selectIssue({ owner, repo, issue }, rowEl) {
+  selectedIssue = { owner, repo, number: issue.number, title: issue.title, body: issue.body };
+
+  // Clear old selection + apply selection style
+  document.querySelectorAll(".issue-row.selected").forEach((el) => el.classList.remove("selected"));
+  rowEl?.classList.add("selected");
+
+  setIssuesStatus(`Selected #${issue.number}: ${issue.title || ""}`);
+
+  if (createFromSelectedButton) {
+    createFromSelectedButton.textContent = `Create bounty for #${issue.number}`;
+  }
+
+  updateCreateControls();
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function createBountyFromSelected() {
+  if (!writeFactory || !signer) {
+    setIssuesStatus("Connect wallet first.");
+    return;
+  }
+  if (!selectedIssue) {
+    setIssuesStatus("Select an issue first.");
+    return;
+  }
+
+  const fundingEth = readInput(issuesFundingEthInput);
+  if (!fundingEth) {
+    setIssuesStatus("Funding is required (must be > 0).");
+    return;
+  }
+
+  let value;
+  try {
+    value = ethers.parseEther(fundingEth);
+    if (value <= 0n) throw new Error("Funding must be > 0");
+  } catch {
+    setIssuesStatus("Invalid funding amount.");
+    return;
+  }
+
+  if (createFromSelectedButton) createFromSelectedButton.disabled = true;
+  setIssuesStatus("Sending transaction...");
+
+  try {
+    const { owner, repo, number } = selectedIssue;
+
+    const tx = await writeFactory.createBounty(owner, repo, String(number), { value });
+    setIssuesStatus(`Tx sent: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    let bountyAddr = null;
+
+    for (const log of receipt.logs || []) {
+      try {
+        const parsed = writeFactory.interface.parseLog(log);
+        if (parsed?.name === "BountyDeployed") {
+          bountyAddr = parsed.args?.bounty;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    setIssuesStatus(bountyAddr ? `Created: ${bountyAddr}` : "Confirmed. Refreshing…");
+    await loadBountiesView({ write: true });
+  } catch (err) {
+    console.error(err);
+    setIssuesStatus((err && (err.shortMessage || err.message)) || "Transaction failed");
+  } finally {
+    updateCreateControls();
+  }
+}
+
+
+
+function updateCreateControls() {
+  const isConnected = !!(currentAccount && writeFactory && signer);
+  const fundingEth = readInput(issuesFundingEthInput);
+
+  let hasPositiveFunding = false;
+  try {
+    if (fundingEth) {
+      const v = ethers.parseEther(fundingEth);
+      hasPositiveFunding = v > 0n;
+    }
+  } catch {
+    hasPositiveFunding = false;
+  }
+
+  const canCreateSelected = isConnected && !!selectedIssue && hasPositiveFunding;
+  if (createFromSelectedButton) createFromSelectedButton.disabled = !canCreateSelected;
+}
+
+
 
 /* =====================================================================
    SNAPSHOT SAFETY — POSITIONAL + NAMED FIELD ACCESS
@@ -435,90 +654,12 @@ function renderBountyRow(base, snap, err) {
 }
 
 /* =====================================================================
-   CREATE BOUNTY — STATUS UI
-   - Single place to write status text (and tooltip) for the create flow
-   ===================================================================== */
-function setCreateStatus(msg) {
-  if (!createBountyStatus) return;
-  createBountyStatus.textContent = msg || "";
-  createBountyStatus.title = msg || "";
-}
-
-/* =====================================================================
    CREATE BOUNTY — INPUT NORMALIZATION
    - Small helper to trim inputs consistently (safe for missing elements)
    ===================================================================== */
 function readInput(el) {
   return (el?.value || "").trim();
 }
-
-/* =====================================================================
-   CREATE BOUNTY — MAIN FLOW (UI -> TX -> PARSE EVENT -> REFRESH)
-   - Validates inputs, converts ETH to wei (parseEther)
-   - Sends factory.createBounty(repoOwner, repo, issueNumber, { value })
-   - Waits for receipt, tries to parse BountyDeployed event for address
-   - Refreshes the factory view on success
-   ===================================================================== */
-async function createBountyFromUI() {
-  if (!writeFactory || !signer) {
-    setCreateStatus("Connect wallet first.");
-    return;
-  }
-
-  const repoOwner = readInput(repoOwnerInput);
-  const repo = readInput(repoInput);
-  const issueNumber = readInput(issueNumberInput);
-  const fundingEth = readInput(fundingEthInput);
-
-  if (!repoOwner || !repo || !issueNumber) {
-    setCreateStatus("Repo owner, repo, and issue # are required.");
-    return;
-  }
-  if (!fundingEth) {
-    setCreateStatus("Funding is required (must be > 0).");
-    return;
-  }
-
-  let value;
-  try {
-    value = ethers.parseEther(fundingEth);
-    if (value <= 0n) throw new Error("Funding must be > 0");
-  } catch {
-    setCreateStatus("Invalid funding amount.");
-    return;
-  }
-
-  createBountyButton.disabled = true;
-  setCreateStatus("Sending transaction…");
-
-  try {
-    const tx = await writeFactory.createBounty(repoOwner, repo, issueNumber, { value });
-    setCreateStatus(`Tx sent: ${tx.hash}`);
-
-    const receipt = await tx.wait();
-    let bountyAddr = null;
-
-    // Parse BountyDeployed event if present
-    for (const log of receipt.logs || []) {
-      try {
-        const parsed = writeFactory.interface.parseLog(log);
-        if (parsed?.name === "BountyDeployed") {
-          bountyAddr = parsed.args?.bounty;
-          break;
-        }
-      } catch (_) {}
-    }
-
-    setCreateStatus(bountyAddr ? `Created: ${bountyAddr}` : "Confirmed. Refreshing…");
-    await loadBountiesView();
-  } catch (err) {
-    console.error(err);
-    setCreateStatus((err && (err.shortMessage || err.message)) || "Transaction failed");
-  } finally {
-    createBountyButton.disabled = !currentAccount;
-  }
-}
-
 
 async function startup() {
   if (!window.ethereum) {

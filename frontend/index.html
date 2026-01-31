@@ -60,28 +60,35 @@
             <div class="main-inner">
               <div class="button-group">
 
-                <div class="inner-panel" id="createBountyPanel">
-                <div><strong>Create Bounty</strong></div>
+
+              <div class="inner-panel" id="issuesPanel">
+                <div><strong>Issue Browser</strong></div>
 
                 <div class="form-grid">
-                  <label for="repoOwnerInput">Repo owner</label>
-                  <input id="repoOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
+                  <label for="issuesOwnerInput">Repo owner</label>
+                  <input id="issuesOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
 
-                  <label for="repoInput">Repo</label>
-                  <input id="repoInput" type="text" placeholder="e.g. GitBounty_25" />
+                  <label for="issuesRepoInput">Repo</label>
+                  <input id="issuesRepoInput" type="text" placeholder="e.g. GitBounty_25" />
 
-                  <label for="issueNumberInput">Issue #</label>
-                  <input id="issueNumberInput" type="text" placeholder="e.g. 4" />
-
-                  <label for="fundingEthInput">Funding (ETH)</label>
-                  <input id="fundingEthInput" type="text" placeholder="e.g. 0.001" />
+                  <label for="issuesStateSelect">State</label>
+                  <select id="issuesStateSelect">
+                    <option value="open" selected>open</option>
+                    <option value="closed">closed</option>
+                    <option value="all">all</option>
+                  </select>
                 </div>
+
+                <label for="issuesFundingEthInput">Funding (ETH)</label>
+                <input id="issuesFundingEthInput" type="text" placeholder="e.g. 0.001" />
 
                 <div class="panel-actions">
-                  <button id="createBountyButton" class="button kde" disabled>Create</button>
-                  <div id="createBountyStatus" class="status-line"></div>
+                  <button id="loadIssuesButton" class="button kde">Load issues</button>
+                  <button id="createFromSelectedButton" class="button kde" disabled>Create bounty</button>
+                  <div id="issuesStatus" class="status-line"></div>
                 </div>
 
+                <div id="issuesList" class="issues-list"></div>
               </div>
 
               <div class="inner-panel" id="bountiesPanel">

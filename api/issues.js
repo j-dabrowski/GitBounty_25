@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     .map((x) => ({
       number: x.number,
       title: x.title,
+      body: x.body || "",
       state: x.state,
       html_url: x.html_url,
       created_at: x.created_at,
