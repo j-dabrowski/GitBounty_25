@@ -1,0 +1,229 @@
+/* =========================================================
+   kde-theme.css
+   KDE-ish look & feel ONLY: tokens + skins + frame pieces
+   ========================================================= */
+
+/* -------------------------
+   1) Theme tokens
+------------------------- */
+:root {
+  --kde-bg: #c0c0c0;
+  --kde-panel: #dcdad5;
+  --kde-border: #888888;
+  --kde-highlight: #ffffff;
+  --kde-shadow: #444444;
+  --kde-yellow: #f4f1c9;
+  --kde-blue-bg: #0033aa;
+  --kde-blue-text: #7cb7ff;
+
+  /* Frame */
+  --kde-frame-bg: #c6c297; /* pale yellowish-olive */
+  --kde-frame-border-light: #f0f0e0;
+  --kde-frame-border-dark: #6e6a49;
+  --kde-frame-border-black: #161616;
+
+  /* Background */
+  --kde-teal-bg: #9DBEBE;
+}
+
+/* -------------------------
+   2) Desktop background pattern
+------------------------- */
+body.kde-pattern {
+  background:
+    linear-gradient(45deg, #00000005 25%, transparent 25%) 0 0 / 60px 60px repeat,
+    linear-gradient(-45deg, #00000005 25%, transparent 25%) 0 0 / 60px 60px repeat,
+    radial-gradient(circle at 50% 50%, #00000003 20%, transparent 21%) 30px 30px / 60px 60px repeat,
+    linear-gradient(135deg, #4e81b3 0%, #5c8cc2 70%, #4877a1 100%);
+}
+
+/* -------------------------
+   3) App background "desktop window area" skin
+   (NOTE: this is skin, not layout)
+------------------------- */
+#app-background {
+  background-color: var(--kde-teal-bg);
+  border: none;
+}
+
+/* -------------------------
+   4) Frame corners (pixel SVGs)
+------------------------- */
+.corner {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  z-index: 3;
+}
+.corner.top-left     { top: 0; left: 0; }
+.corner.top-right    { top: 0; right: 0; }
+.corner.bottom-left  { bottom: 0; left: 0; }
+.corner.bottom-right { bottom: 0; right: 0; }
+
+.corner.kde.top-left {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 h4 v1 h-3 v3 h-1z' fill='%23ffffff'/><rect x='3' y='3' width='1' height='1' fill='%23222'/></svg>");
+}
+.corner.kde.top-right {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 h4 v1 h-4 z' fill='%23ffffff'/><path d='M3,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='0' y='3' width='1' height='1' fill='%23222'/></svg>");
+}
+.corner.kde.bottom-left {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M0,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='3' y='0' width='1' height='1' fill='%23222'/><rect x='0' y='3' width='4' height='1' fill='%23ffffff'/></svg>");
+}
+.corner.kde.bottom-right {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='%23dcdcdc'/><path d='M3,0 v4 h1 v-4 z' fill='%23ffffff'/><rect x='0' y='3' width='4' height='1' fill='%23ffffff'/><rect x='0' y='0' width='1' height='1' fill='%23222'/></svg>");
+}
+
+/* -------------------------
+   5) Frame "lips" (bevel borders)
+------------------------- */
+.lip {
+  flex-shrink: 0;
+  position: relative;
+  background: #ccc; /* fallback */
+  z-index: 1;
+}
+
+/* Top / bottom */
+.lip.top,
+.lip.bottom {
+  height: 4px;
+  width: 100%;
+  position: relative;
+  z-index: 0; /* behind side lips */
+}
+
+.lip.top {
+  margin-bottom: -1px; /* overlap under sides */
+  background: linear-gradient(to bottom, #ffffff, #c7c7c7 50%, #161616);
+  box-shadow: inset 0 1px 0 #ffffff, inset 0 -1px 0 #888888;
+}
+.lip.bottom {
+  margin-top: -1px;
+  background: linear-gradient(to top, #ffffff, #c7c7c7 50%, #161616);
+  box-shadow: inset 0 -1px 0 #ffffff, inset 0 1px 0 #222;
+}
+
+/* Left / right */
+.lip.left,
+.lip.right {
+  width: 4px;
+  height: auto;
+  z-index: 2; /* above top/bottom */
+}
+
+.lip.left {
+  margin-right: -1px;
+  background: linear-gradient(to right, #ffffff, #c7c7c7 50%, #161616);
+  box-shadow: inset 1px 0 0 #ffffff, inset -1px 0 0 #222;
+}
+.lip.right {
+  margin-left: -1px;
+  background: linear-gradient(to left, #ffffff, #c7c7c7 50%, #161616);
+  box-shadow: inset -1px 0 0 #ffffff, inset 1px 0 0 #222;
+}
+
+/* -------------------------
+   6) KDE window/title bar skin
+------------------------- */
+.title-bar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border: none;
+}
+
+.title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  position: relative;
+  z-index: 2; /* above top/bottom lips */
+}
+
+.title-inner {
+  flex: 1;
+  border: 1px solid #222;
+  background: linear-gradient(to bottom, #ffffff, #dcdcdc 50%, #888888);
+  padding: 0;
+}
+
+.title-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.title-text {
+  font-style: normal;
+  font-weight: bold;
+  font-family: sans-serif;
+  font-size: 16px;
+}
+
+/* -------------------------
+   7) KDE panels (skin)
+------------------------- */
+.inner-panel {
+  background-color: var(--kde-panel);
+  border: 1px solid var(--kde-border);
+  padding: 16px;
+  box-shadow:
+    inset 0 0 0 1px var(--kde-highlight),
+    2px 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+/* -------------------------
+   8) KDE buttons (skin)
+------------------------- */
+.button {
+  min-width: 100px;
+  padding: 4px 10px;
+  box-shadow:
+    -1px -1px 0 0 #fefefe,
+     1px  1px 0 0 #666666;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.button.kde {
+  background: linear-gradient(to bottom, #e8e8e8 0%, #d0d0d0 95%);
+  color: #111;
+  font-family: sans-serif;
+  font-weight: bold;
+  border: 1px solid #444;
+  outline: 1px solid #fff;
+}
+
+.button.kde:hover:not(.pressed) {
+  background: linear-gradient(to bottom, #ffffff, #e0e0e0 80%, #c0c0c0);
+}
+
+.button.kde:active {
+  box-shadow: inset -1px -1px 0 #fff, inset 1px 1px 0 #444;
+}
+
+.button.kde.pressed {
+  box-shadow: inset 1px 1px 0 #888, inset -1px -1px 0 #fff;
+}
+
+button:disabled,
+.button.kde:disabled {
+  background: linear-gradient(to bottom, #e0e0e0, #c8c8c8 80%, #b0b0b0);
+  color: #666;
+  border: 1px solid #aaa;
+  box-shadow: none;
+  opacity: 0.7;
+  cursor: default;
+  text-shadow: 0 1px 0 #fff;
+}

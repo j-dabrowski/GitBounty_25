@@ -1,125 +1,136 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GitBounty</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="kde-theme.css" />
+    <link rel="stylesheet" href="app.css" />
   </head>
 
   <body class="kde-pattern">
-    <div id="app">
+    <div id="app" class="kde-window">
 
-        <div id="app-header">
+      <!-- =========================================================
+           OUTER WINDOW FRAME (lips + corners around the whole app)
+           ========================================================= -->
+      <div class="corner top-left kde"></div>
+      <div class="corner top-right kde"></div>
+      <div class="corner bottom-left kde"></div>
+      <div class="corner bottom-right kde"></div>
 
-          <div class="title-bar">
-            <div class="corner top-left kde"></div>
-            <div class="corner top-right kde"></div>
-            <div class="corner bottom-left kde"></div>
-            <div class="corner bottom-right kde"></div>
-            <div class="lip top"></div>
-            <div class="title-row">
-              <div class="lip left"></div>
-              <div class="title-inner">
-                <div class="title-bar">
-                  <div class="corner top-left kde"></div>
-                  <div class="corner top-right kde"></div>
-                  <div class="corner bottom-left kde"></div>
-                  <div class="corner bottom-right kde"></div>
-                  <div class="lip top"></div>
-                  <div class="title-row">
-                    <div class="lip left"></div>
-                    <div class="title-inner">
-                      <div class="title-content">
-                        <span class="title-text">App - GitBounty</span>
-                        <button id="connectButton" class="button kde">Connect Wallet</button>
+      <div class="lip top"></div>
+
+      <div class="kde-window-row">
+        <div class="lip left"></div>
+
+        <div class="kde-window-inner">
+          <!-- =========================================================
+               HEADER (inner frame around the title bar only)
+               ========================================================= -->
+          <div id="app-header">
+
+            <!-- OUTER TITLE FRAME (keep if you want nesting) -->
+            <div class="title-bar">
+              <div class="title-row">
+                <div class="title-inner">
+
+                  <!-- INNER TITLE FRAME (active lips/corners) -->
+                  <div class="title-bar">
+                    <div class="corner top-left kde"></div>
+                    <div class="corner top-right kde"></div>
+                    <div class="corner bottom-left kde"></div>
+                    <div class="corner bottom-right kde"></div>
+
+                    <div class="lip top"></div>
+
+                    <div class="title-row">
+                      <div class="lip left"></div>
+
+                      <div class="title-inner">
+                        <div class="title-content">
+                          <span class="title-text">App - GitBounty</span>
+                          <button id="connectButton" class="button kde">Connect Wallet</button>
+                        </div>
                       </div>
+
+                      <div class="lip right"></div>
                     </div>
-                    <div class="lip right"></div>
+
+                    <div class="lip bottom"></div>
                   </div>
-                <div class="lip bottom"></div>
-              </div>
+                  <!-- /INNER TITLE FRAME -->
 
-          <!--
-          <div class="title-bar">
-            <div class="kde-corner top-left"></div>
-            <div class="kde-corner top-right"></div>
-            <div class="kde-corner bottom-left"></div>
-            <div class="kde-corner bottom-right"></div>
-            <div class="lip top"></div>
-            <div class="title-row">
-              <div class="lip left"></div>
-              <div class="title-inner">
-                
+                </div>
               </div>
-              <div class="lip right"></div>
             </div>
-            <div class="lip bottom"></div>
-          </div>
-          -->
+            <!-- /OUTER TITLE FRAME -->
 
+          </div>
+
+          <!-- =========================================================
+               MAIN CONTENT (teal area)
+               ========================================================= -->
           <div id="app-background">
             <div class="main-inner">
               <div class="button-group">
 
+                <div class="inner-panel" id="issuesPanel">
+                  <div><strong>Issue Browser</strong></div>
 
-              <div class="inner-panel" id="issuesPanel">
-                <div><strong>Issue Browser</strong></div>
+                  <div class="form-grid">
+                    <label for="issuesOwnerInput">Repo owner</label>
+                    <input id="issuesOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
 
-                <div class="form-grid">
-                  <label for="issuesOwnerInput">Repo owner</label>
-                  <input id="issuesOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
+                    <label for="issuesRepoInput">Repo</label>
+                    <input id="issuesRepoInput" type="text" placeholder="e.g. GitBounty_25" />
 
-                  <label for="issuesRepoInput">Repo</label>
-                  <input id="issuesRepoInput" type="text" placeholder="e.g. GitBounty_25" />
-
-                  <label for="issuesStateSelect">State</label>
-                  <select id="issuesStateSelect">
-                    <option value="open" selected>open</option>
-                    <option value="closed">closed</option>
-                    <option value="all">all</option>
-                  </select>
-                </div>
-
-                <label for="issuesFundingEthInput">Funding (ETH)</label>
-                <input id="issuesFundingEthInput" type="text" placeholder="e.g. 0.001" />
-
-                <div class="panel-actions">
-                  <button id="loadIssuesButton" class="button kde">Load issues</button>
-                  <button id="createFromSelectedButton" class="button kde" disabled>Create bounty</button>
-                  <div id="issuesStatus" class="status-line"></div>
-                </div>
-
-                <div id="issuesList" class="issues-list"></div>
-              </div>
-
-              <div class="inner-panel" id="bountiesPanel">
-                <div class="panel-header" id="factoryPanel">
-                  <div class="panel-title"><strong>Gitbounty Factory</strong></div>
-
-                  <div class="panel-meta">
-                    <div id="factoryAddress" class="mono"></div>
-                    <div id="factoryBountyCount"></div>
+                    <label for="issuesStateSelect">State</label>
+                    <select id="issuesStateSelect">
+                      <option value="open" selected>open</option>
+                      <option value="closed">closed</option>
+                      <option value="all">all</option>
+                    </select>
                   </div>
 
-                  <button id="refreshButton" class="button kde" disabled>Refresh</button>
+                  <label for="issuesFundingEthInput">Funding (ETH)</label>
+                  <input id="issuesFundingEthInput" type="text" placeholder="e.g. 0.001" />
+
+                  <div class="panel-actions">
+                    <button id="loadIssuesButton" class="button kde">Load issues</button>
+                    <button id="createFromSelectedButton" class="button kde" disabled>Create bounty</button>
+                    <div id="issuesStatus" class="status-line"></div>
+                  </div>
+
+                  <div id="issuesList" class="issues-list"></div>
                 </div>
 
-                <div id="bountiesList"></div>
-              </div>
+                <div class="inner-panel" id="bountiesPanel">
+                  <div class="panel-header" id="factoryPanel">
+                    <div class="panel-title"><strong>Gitbounty Factory</strong></div>
 
-              </div> 
+                    <div class="panel-meta">
+                      <div id="factoryAddress" class="mono"></div>
+                      <div id="factoryBountyCount"></div>
+                    </div>
+
+                    <button id="refreshButton" class="button kde" disabled>Refresh</button>
+                  </div>
+
+                  <div id="bountiesList"></div>
+                </div>
+
+              </div>
             </div>
           </div>
-
-
-          </div>
-          <div class="lip right"></div>
         </div>
-        <div class="lip bottom"></div>
+
+        <div class="lip right"></div>
       </div>
 
-      </div>
+      <div class="lip bottom"></div>
     </div>
-  </body>
 
-  <script src="./index.js" type="module"></script>
+    <script src="./index.js" type="module"></script>
+  </body>
 </html>
