@@ -2,9 +2,19 @@ import { ethers } from "./ethers-6.7.esm.min.js";
 import { factoryAddress, factoryAbi, bountyAbi, chainIdMap, READ_RPC_URLS, API_ORIGIN } from "./constants.js";
 
 /* =====================================================================
-    GLOBAL RUNTIME STATE
-    Set on connect / accountsChanged, cleared on disconnect
+   0) CONFIG + CONSTANTS
 ===================================================================== */
+
+const apiOrigin = API_ORIGIN || window.location.origin;
+
+// BOUNTY STATE LABELS (must match contract enum order)
+const BOUNTY_STATE = ["BASE", "EMPTY", "READY", "CALCULATING", "PAID"];
+
+/* =====================================================================
+   1) GLOBAL RUNTIME STATE
+   Set on connect / accountsChanged, cleared on disconnect
+===================================================================== */
+
 let currentAccount = null;
 
 // Write+Read (wallet only)
@@ -12,19 +22,18 @@ let browserProvider;
 let signer;
 let writeFactory;
 
+// Read-only fallback provider
 let readProvider;
 let readFactory;
 
-// BOUNTY STATE LABELS
-const BOUNTY_STATE = ["BASE", "EMPTY", "READY", "CALCULATING", "PAID"];
-
-const apiOrigin = API_ORIGIN || window.location.origin;
+// Issue selection state
+let selectedIssue = null; // { owner, repo, number, title, body }
 
 /* =====================================================================
-    DOM REFERENCES
+   2) DOM REFERENCES
 ===================================================================== */
 
-// READONLY UI ELEMENTS 
+// READONLY UI ELEMENTS
 const factoryAddressEl = document.getElementById("factoryAddress");
 const factoryBountyCountEl = document.getElementById("factoryBountyCount");
 const bountiesListEl = document.getElementById("bountiesList");
@@ -43,41 +52,143 @@ const issuesStatus = document.getElementById("issuesStatus");
 const issuesListEl = document.getElementById("issuesList");
 const issuesFundingEthInput = document.getElementById("issuesFundingEthInput");
 
-// Issue selection state
-let selectedIssue = null; // { owner, repo, number, title, body }
+// POPOVER
+const bountyPopoverEl = document.getElementById("bountyDetailsPopover");
+let popoverOutsideHandlerBound = false;
 
 /* =====================================================================
-    EVENTS
+   3) EVENTS / WIRING
 ===================================================================== */
+
 connectButton.onclick = connect;
 refreshButton.onclick = loadBountiesView;
+
 if (loadIssuesButton) loadIssuesButton.onclick = loadIssuesFromUI;
 if (createFromSelectedButton) createFromSelectedButton.onclick = createBountyFromSelected;
 
+// Keep UI synced with MetaMask account switching
+handleAccountChange();
+
 /* =====================================================================
-    UI HELPERS
+   4) SMALL UI + FORMAT HELPERS
 ===================================================================== */
 
-// BUTTON STATE TOGGLE
+// Button pressed state
 function pressButton(button, status) {
   button.classList.toggle("pressed", status);
 }
 
-// ADDRESS SHORTENER
+// Address shortener
 function shortAddr(addr) {
   if (!addr) return "";
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
-// TIMESTAMPS
+// Timestamps
 function formatTimestamp(ts) {
   const n = Number(ts);
   if (!n) return "—";
   return new Date(n * 1000).toLocaleString();
 }
 
+// Safe HTML escaping (innerHTML)
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// For title="" attributes etc
+function escapeAttr(s) {
+  return escapeHtml(s).replaceAll("\n", " ");
+}
+
+// Small helper to trim inputs consistently
+function readInput(el) {
+  return (el?.value || "").trim();
+}
+
 /* =====================================================================
-    ACCOUNT HELPERS
+   5) SNAPSHOT SAFETY + VALUE FORMATTERS
+===================================================================== */
+
+// Supports both tuple arrays and named return objects from ethers ABI
+function safeGet(res, i, fallbackKey) {
+  try {
+    if (res && typeof res.length === "number" && i < res.length) return res[i];
+  } catch (_) {}
+  if (fallbackKey && res && res[fallbackKey] !== undefined) return res[fallbackKey];
+  return undefined;
+}
+
+// Prevent UI crashes if a value is missing or not BigInt-compatible
+function safeFormatEther(v) {
+  try {
+    if (v === null || v === undefined) return "—";
+    return ethers.formatEther(v);
+  } catch {
+    return "—";
+  }
+}
+
+/* =====================================================================
+   6) UI STATE + CONTROLS
+===================================================================== */
+
+function initFactoryHeaderUI() {
+  factoryAddressEl.textContent = `Address: ${factoryAddress}`;
+  factoryBountyCountEl.textContent = "Bounties: ...";
+}
+
+function setConnectedUI(chainId) {
+  const networkName = chainIdMap[chainId] || "Unknown Network";
+  const short = shortAddr(currentAccount);
+
+  pressButton(connectButton, true);
+  connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
+  refreshButton.disabled = false;
+
+  updateCreateControls();
+}
+
+function setDisconnectedUI() {
+  currentAccount = null;
+  selectedIssue = null;
+
+  pressButton(connectButton, false);
+  connectButton.innerHTML = "Connect Wallet";
+
+  if (createFromSelectedButton) createFromSelectedButton.disabled = true;
+
+  setIssuesStatus("");
+  if (createFromSelectedButton) createFromSelectedButton.textContent = "Create bounty";
+
+  document.querySelectorAll(".issue-row.selected").forEach((el) => el.classList.remove("selected"));
+}
+
+function updateCreateControls() {
+  const isConnected = !!(currentAccount && writeFactory && signer);
+  const fundingEth = readInput(issuesFundingEthInput);
+
+  let hasPositiveFunding = false;
+  try {
+    if (fundingEth) {
+      const v = ethers.parseEther(fundingEth);
+      hasPositiveFunding = v > 0n;
+    }
+  } catch {
+    hasPositiveFunding = false;
+  }
+
+  const canCreateSelected = isConnected && !!selectedIssue && hasPositiveFunding;
+  if (createFromSelectedButton) createFromSelectedButton.disabled = !canCreateSelected;
+}
+
+/* =====================================================================
+   7) PROVIDERS + WALLET / ACCOUNT HELPERS
 ===================================================================== */
 
 async function initReadProvider() {
@@ -101,7 +212,6 @@ async function initReadProvider() {
       throw new Error("No working read RPC available (all READ_RPC_URLS failed).");
     }
 
-    // 2. Install globals
     readProvider = provider;
     readFactory = new ethers.Contract(factoryAddress, factoryAbi, readProvider);
 
@@ -109,55 +219,11 @@ async function initReadProvider() {
   } catch (e) {
     console.error(e);
     bountiesListEl.innerHTML = `
-      <div class="bounty-row"><em>${e.message}</em></div>
+      <div class="bounty-row"><em>${escapeHtml(e.message)}</em></div>
     `;
     return false;
   }
 }
-
-/* =====================================================================
-    UI FUNCTIONS
-===================================================================== */
-
-function initFactoryHeaderUI() {
-  factoryAddressEl.textContent = `Address: ${factoryAddress}`;
-  factoryBountyCountEl.textContent = "Bounties: ..."; // default, updated later
-}
-
-// UI STATE — CONNECTED VIEW
-// Updates button labels and enables actions once wallet is connected
-function setConnectedUI(chainId) {
-  const networkName = chainIdMap[chainId] || "Unknown Network";
-  const short = shortAddr(currentAccount);
-  pressButton(connectButton, true);
-  connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
-  refreshButton.disabled = false;
-  updateCreateControls();
-}
-
-// UI STATE — DISCONNECTED / RESET VIEW
-// Clears wallet state and resets UI back to “not connected”
-function setDisconnectedUI() {
-  currentAccount = null;
-  selectedIssue = null;
-
-  pressButton(connectButton, false);
-  connectButton.innerHTML = "Connect Wallet";
-
-  // Disable create-from-selection
-  if (createFromSelectedButton) createFromSelectedButton.disabled = true;
-
-  // Clear issue UI status + button label
-  setIssuesStatus("");
-  if (createFromSelectedButton) createFromSelectedButton.textContent = "Create bounty";
-
-  // Optional: clear selection highlight
-  document.querySelectorAll(".issue-row.selected").forEach((el) => el.classList.remove("selected"));
-}
-
-// METAMASK EVENT HANDLING - ACCOUNT SWITCH
-// Keeps the UI up to date when the user changes accounts in MetaMask
-handleAccountChange();
 
 function handleAccountChange() {
   if (!window.ethereum) return;
@@ -173,17 +239,13 @@ function handleAccountChange() {
 
     try {
       const ok = await setupFromEthereum({ shouldRequestAccounts: false });
-      if (!ok) {
-        setDisconnectedUI();
-        return;
-      }
+      if (!ok) setDisconnectedUI();
     } catch (err) {
       console.error(err);
     }
   });
 }
 
-// SETUP WALLET-ETHEREUM CONNECTION
 async function setupFromEthereum({ shouldRequestAccounts = false } = {}) {
   if (!window.ethereum) {
     connectButton.innerHTML = "Please install MetaMask";
@@ -209,12 +271,8 @@ async function setupFromEthereum({ shouldRequestAccounts = false } = {}) {
   return true;
 }
 
-
-// WALLET CONNECT / DISCONNECT (TOGGLE)
-// Connects to MetaMask, sets up provider/signer/factory contract instance
-// If already connected, acts as a “disconnect” (UI-only reset)
+// Wallet connect / disconnect (UI-only reset on disconnect)
 async function connect() {
-  // toggle disconnect (UI-only)
   if (currentAccount) {
     setDisconnectedUI();
     return;
@@ -223,7 +281,7 @@ async function connect() {
   try {
     const ok = await setupFromEthereum({ shouldRequestAccounts: true });
     if (!ok) {
-      setDisconnectedUI(); // or just show "No account selected"
+      setDisconnectedUI();
       return;
     }
     await loadBountiesView({ write: true });
@@ -231,6 +289,10 @@ async function connect() {
     console.error(err);
   }
 }
+
+/* =====================================================================
+   8) LOADING / SPINNER HELPERS
+===================================================================== */
 
 function setListLoading(isLoading) {
   bountiesListEl.classList.toggle("is-loading", isLoading);
@@ -240,131 +302,20 @@ function setRefreshLoading(isLoading) {
   refreshButton.classList.toggle("is-loading", isLoading);
 }
 
+let bountiesLoadNonce = 0;
+
 function startDelayedRefreshSpinner(nonce, delayMs = 200) {
   const id = setTimeout(() => {
     if (nonce === bountiesLoadNonce) setRefreshLoading(true);
   }, delayMs);
-
   return () => clearTimeout(id);
 }
 
 function startDelayedLoading(nonce, delayMs = 200) {
   const id = setTimeout(() => {
-    // only show loading if this request is still the latest
     if (nonce === bountiesLoadNonce) setListLoading(true);
   }, delayMs);
-
-  // return a cancel function
   return () => clearTimeout(id);
-}
-
-/* =====================================================================
-    DATA FUNCTIONS
-===================================================================== */
-
-// LOAD AND RENDER ALL BOUNTIES
-// Reads factory bountyCount + paginates getBounties(start, limit)
-// For each bounty: fetches getBountySnapshot() and renders a UI row
-// Uses Promise.allSettled to render partial results even if some fail
-let bountiesLoadNonce = 0;
-
-async function loadBountiesView({ write = false } = {}) {
-  const factory = write && writeFactory ? writeFactory : readFactory;
-  const provider = write && browserProvider ? browserProvider : readProvider;
-
-  if (!factory) return;
-
-  const nonce = ++bountiesLoadNonce;
-
-  factoryAddressEl.textContent = `Address: ${factoryAddress}`;
-
-  // Delay UI "loading" indicators so fast loads don't flash
-  const cancelListTimer = startDelayedLoading(nonce, 200); // your existing delayed list loader
-  const cancelSpinTimer = startDelayedRefreshSpinner(nonce, 200); // new
-
-  try {
-    // ---- read count
-    let count;
-    try {
-      count = Number(await factory.bountyCount());
-    } catch (err) {
-      console.error("Error reading bounty count:", err);
-      factoryBountyCountEl.textContent = `Bounties: (error)`;
-      return;
-    }
-
-    // If a newer refresh started, don't update UI with stale results
-    if (nonce !== bountiesLoadNonce) return;
-
-    factoryBountyCountEl.textContent = `Bounties: ${count}`;
-
-    if (count === 0) {
-      // atomic swap keeps things stable
-      bountiesListEl.replaceChildren(
-        (() => {
-          const d = document.createElement("div");
-          d.className = "bounty-row";
-          d.innerHTML = `<em>No bounties found.</em>`;
-          return d;
-        })()
-      );
-      return;
-    }
-
-    // ---- collect addresses
-    const pageSize = 25;
-    const all = [];
-
-    for (let start = 0; start < count; start += pageSize) {
-      const limit = Math.min(pageSize, count - start);
-      const [addresses, nextAts] = await factory.getBounties(start, limit);
-
-      for (let i = 0; i < addresses.length; i++) {
-        all.push({
-          index: start + i,
-          address: addresses[i],
-          nextAttemptAt: nextAts[i],
-        });
-      }
-    }
-
-    if (nonce !== bountiesLoadNonce) return;
-
-    // ---- fetch snapshots
-    const settled = await Promise.allSettled(
-      all.map(async (entry) => {
-        const bounty = new ethers.Contract(entry.address, bountyAbi, provider);
-        const snap = await bounty.getBountySnapshot();
-        return { entry, snap };
-      })
-    );
-
-    if (nonce !== bountiesLoadNonce) return;
-
-    // ---- build new list off-DOM
-    const frag = document.createDocumentFragment();
-
-    for (let i = 0; i < settled.length; i++) {
-      const s = settled[i];
-      if (s.status === "fulfilled") {
-        frag.appendChild(renderBountyRow(s.value.entry, s.value.snap));
-      } else {
-        console.error("Snapshot failed for", all[i].address, s.reason);
-        frag.appendChild(renderBountyRow(all[i], null, s.reason));
-      }
-    }
-
-    // ---- single swap (no flicker)
-    bountiesListEl.replaceChildren(frag);
-  } finally {
-    cancelListTimer();
-    cancelSpinTimer();
-    // only the latest call should control loading state
-    if (nonce === bountiesLoadNonce) {
-      setListLoading(false);
-      setRefreshLoading(false);
-    }
-  }
 }
 
 function setIssuesLoading(isLoading) {
@@ -377,6 +328,154 @@ function setIssuesStatus(msg) {
   issuesStatus.textContent = msg || "";
   issuesStatus.title = msg || "";
 }
+
+/* =====================================================================
+   9) ISSUE CACHE + API HELPERS
+===================================================================== */
+
+// key: "owner/repo" => Map(issueNumber -> { title, html_url })
+const issueCache = new Map();
+
+// key: "owner/repo" => { fetchedAt, done, inFlight }
+const repoFetchState = new Map();
+
+function cacheIssues(owner, repo, items) {
+  if (!owner || !repo) return;
+  const key = `${owner}/${repo}`;
+
+  let map = issueCache.get(key);
+  if (!map) {
+    map = new Map();
+    issueCache.set(key, map);
+  }
+
+  for (const it of items || []) {
+    if (!it?.number) continue;
+    map.set(Number(it.number), { title: it.title || "", html_url: it.html_url || "" });
+  }
+}
+
+function getCachedIssueTitle(owner, repo, issueNumber) {
+  if (!owner || !repo || issueNumber == null) return null;
+  const key = `${owner}/${repo}`;
+  return issueCache.get(key)?.get(Number(issueNumber))?.title || null;
+}
+
+function getCachedIssueUrl(owner, repo, issueNumber) {
+  if (!owner || !repo || issueNumber == null) return null;
+  const key = `${owner}/${repo}`;
+  return issueCache.get(key)?.get(Number(issueNumber))?.html_url || null;
+}
+
+async function fetchIssuesFromApi({ owner, repo, state = "open", per_page = 50, page = 1 } = {}) {
+  const url = new URL("/api/issues", apiOrigin);
+  url.searchParams.set("owner", owner);
+  url.searchParams.set("repo", repo);
+  url.searchParams.set("state", state);
+  url.searchParams.set("per_page", String(per_page));
+  url.searchParams.set("page", String(page));
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const msg = data?.error
+      ? `${data.error}${data.details ? ": " + data.details : ""}`
+      : `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+
+  const items = Array.isArray(data.issues) ? data.issues : [];
+  return { items, data };
+}
+
+async function runWithLimit(tasks, limit = 3) {
+  const results = [];
+  let i = 0;
+
+  async function worker() {
+    while (i < tasks.length) {
+      const idx = i++;
+      results[idx] = await tasks[idx]();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Prefetch issue titles for repos found in bounty snapshots.
+ * This keeps the bounty rows compact (we can show the issue title without extra per-row fetches).
+ */
+async function prefetchIssuesForBounties(snaps) {
+  const repos = new Map(); // key => { owner, repo }
+  for (const snap of snaps || []) {
+    if (!snap) continue;
+
+    // BountySnapshot struct (supports tuple + named keys)
+    const stateNum = Number(safeGet(snap, 0, "state"));
+    const stateLabel = BOUNTY_STATE[stateNum] ?? "—";
+    const isPaid = stateLabel === "PAID";
+
+    const repoOwnerNow = safeGet(snap, 4, "repoOwner");
+    const repoNow = safeGet(snap, 5, "repo");
+
+    const repoOwnerLast = safeGet(snap, 11, "last_repo_owner");
+    const repoLast = safeGet(snap, 12, "last_repo");
+
+    const repoOwner = (isPaid ? repoOwnerLast : repoOwnerNow) || repoOwnerNow || repoOwnerLast;
+    const repo = (isPaid ? repoLast : repoNow) || repoNow || repoLast;
+
+    if (!repoOwner || !repo) continue;
+
+    const key = `${repoOwner}/${repo}`;
+    repos.set(key, { owner: repoOwner, repo });
+  }
+
+  const repoList = Array.from(repos.values());
+  if (repoList.length === 0) return;
+
+  const now = Date.now();
+  const TTL_MS = 5 * 60 * 1000;
+
+  const tasks = repoList.map(({ owner, repo }) => async () => {
+    const key = `${owner}/${repo}`;
+
+    const st = repoFetchState.get(key);
+    const fresh = st?.fetchedAt && now - st.fetchedAt < TTL_MS;
+    if (fresh) return { key, skipped: true };
+
+    // de-dupe concurrent fetches
+    if (st?.inFlight) return st.inFlight;
+
+    const promise = (async () => {
+      try {
+        const { items } = await fetchIssuesFromApi({ owner, repo, state: "all", per_page: 50, page: 1 });
+        const issuesOnly = (Array.isArray(items) ? items : []).filter((it) => !it.pull_request);
+        cacheIssues(owner, repo, issuesOnly);
+        repoFetchState.set(key, { fetchedAt: Date.now(), done: true, inFlight: null });
+        return { key, count: issuesOnly.length };
+      } catch (e) {
+        repoFetchState.set(key, { fetchedAt: Date.now(), done: false, inFlight: null });
+        return { key, error: (e && e.message) || String(e) };
+      }
+    })();
+
+    repoFetchState.set(key, { fetchedAt: st?.fetchedAt || 0, done: st?.done || false, inFlight: promise });
+    return promise;
+  });
+
+  await runWithLimit(tasks, 3);
+}
+
+/* =====================================================================
+   10) ISSUE BROWSER UI (LOAD / RENDER / SELECT)
+===================================================================== */
 
 async function loadIssuesFromUI() {
   if (!issuesOwnerInput || !issuesRepoInput || !issuesListEl) return;
@@ -397,35 +496,18 @@ async function loadIssuesFromUI() {
   updateCreateControls();
 
   try {
-    const url = new URL("/api/issues", apiOrigin);
-    url.searchParams.set("owner", owner);
-    url.searchParams.set("repo", repo);
-    url.searchParams.set("state", state);
-    url.searchParams.set("per_page", "50");
+    const { items } = await fetchIssuesFromApi({ owner, repo, state, per_page: 50, page: 1 });
 
-    const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      const msg = data?.error
-        ? `${data.error}${data.details ? ": " + data.details : ""}`
-        : `HTTP ${res.status}`;
-      setIssuesStatus(msg);
-      issuesListEl.replaceChildren(Object.assign(document.createElement("div"), {
-        className: "bounty-row",
-        innerHTML: `<em>${msg}</em>`,
-      }));
-      return;
-    }
-
-    const items = Array.isArray(data.issues) ? data.issues : [];
+    cacheIssues(owner, repo, items);
 
     if (items.length === 0) {
       setIssuesStatus("No issues found.");
-      issuesListEl.replaceChildren(Object.assign(document.createElement("div"), {
-        className: "bounty-row",
-        innerHTML: `<em>No issues found.</em>`,
-      }));
+      issuesListEl.replaceChildren(
+        Object.assign(document.createElement("div"), {
+          className: "bounty-row",
+          innerHTML: `<em>No issues found.</em>`,
+        })
+      );
       return;
     }
 
@@ -436,7 +518,14 @@ async function loadIssuesFromUI() {
     setIssuesStatus(`Loaded ${items.length} issues.`);
   } catch (err) {
     console.error(err);
-    setIssuesStatus((err && (err.shortMessage || err.message)) || "Failed to load issues");
+    const msg = (err && (err.shortMessage || err.message)) || "Failed to load issues";
+    setIssuesStatus(msg);
+    issuesListEl.replaceChildren(
+      Object.assign(document.createElement("div"), {
+        className: "bounty-row",
+        innerHTML: `<em>${escapeHtml(msg)}</em>`,
+      })
+    );
   } finally {
     setIssuesLoading(false);
     updateCreateControls();
@@ -447,14 +536,19 @@ function renderIssueRow({ owner, repo, issue }) {
   const row = document.createElement("div");
   row.className = "issue-row";
 
-  const labels = (issue.labels || []).slice(0, 6).join(", ");
+  const labels = (issue.labels || [])
+    .slice(0, 6)
+    .map((l) => (typeof l === "string" ? l : l?.name))
+    .filter(Boolean)
+    .join(", ");
+
   const body = (issue.body || "").trim();
 
   row.innerHTML = `
     <div class="issue-title">#${issue.number} — ${escapeHtml(issue.title || "")}</div>
     <div class="issue-meta">
       <span>state: ${issue.state || "—"}</span>
-      <span>author: ${issue.author || "—"}</span>
+      <span>author: ${escapeHtml(issue.user?.login || "—")}</span>
       <span>comments: ${issue.comments ?? 0}</span>
       ${labels ? `<span>labels: ${escapeHtml(labels)}</span>` : ""}
     </div>
@@ -468,7 +562,6 @@ function renderIssueRow({ owner, repo, issue }) {
 function selectIssue({ owner, repo, issue }, rowEl) {
   selectedIssue = { owner, repo, number: issue.number, title: issue.title, body: issue.body };
 
-  // Clear old selection + apply selection style
   document.querySelectorAll(".issue-row.selected").forEach((el) => el.classList.remove("selected"));
   rowEl?.classList.add("selected");
 
@@ -481,14 +574,9 @@ function selectIssue({ owner, repo, issue }, rowEl) {
   updateCreateControls();
 }
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+/* =====================================================================
+   11) CREATE BOUNTY (FROM SELECTED ISSUE)
+===================================================================== */
 
 async function createBountyFromSelected() {
   if (!writeFactory || !signer) {
@@ -547,119 +635,300 @@ async function createBountyFromSelected() {
   }
 }
 
+/* =====================================================================
+   12) BOUNTIES: LOAD + RENDER
+===================================================================== */
 
+async function loadBountiesView({ write = false } = {}) {
+  const factory = write && writeFactory ? writeFactory : readFactory;
+  const provider = write && browserProvider ? browserProvider : readProvider;
 
-function updateCreateControls() {
-  const isConnected = !!(currentAccount && writeFactory && signer);
-  const fundingEth = readInput(issuesFundingEthInput);
+  if (!factory) return;
 
-  let hasPositiveFunding = false;
+  const nonce = ++bountiesLoadNonce;
+
+  factoryAddressEl.textContent = `Address: ${factoryAddress}`;
+
+  const cancelListTimer = startDelayedLoading(nonce, 200);
+  const cancelSpinTimer = startDelayedRefreshSpinner(nonce, 200);
+
   try {
-    if (fundingEth) {
-      const v = ethers.parseEther(fundingEth);
-      hasPositiveFunding = v > 0n;
+    let count;
+    try {
+      count = Number(await factory.bountyCount());
+    } catch (err) {
+      console.error("Error reading bounty count:", err);
+      factoryBountyCountEl.textContent = `Bounties: (error)`;
+      return;
     }
-  } catch {
-    hasPositiveFunding = false;
+
+    if (nonce !== bountiesLoadNonce) return;
+
+    factoryBountyCountEl.textContent = `Bounties: ${count}`;
+
+    if (count === 0) {
+      bountiesListEl.replaceChildren(
+        Object.assign(document.createElement("div"), {
+          className: "bounty-row",
+          innerHTML: `<em>No bounties found.</em>`,
+        })
+      );
+      return;
+    }
+
+    // Collect addresses
+    const pageSize = 25;
+    const all = [];
+
+    for (let start = 0; start < count; start += pageSize) {
+      const limit = Math.min(pageSize, count - start);
+      const [addresses, nextAts] = await factory.getBounties(start, limit);
+
+      for (let i = 0; i < addresses.length; i++) {
+        all.push({
+          index: start + i,
+          address: addresses[i],
+          nextAttemptAt: nextAts[i],
+        });
+      }
+    }
+
+    if (nonce !== bountiesLoadNonce) return;
+
+    // Fetch snapshots
+    const settled = await Promise.allSettled(
+      all.map(async (entry) => {
+        const bounty = new ethers.Contract(entry.address, bountyAbi, provider);
+        const snap = await bounty.getBountySnapshot();
+        return { entry, snap };
+      })
+    );
+
+    if (nonce !== bountiesLoadNonce) return;
+
+    // Prefetch issue titles for ALL repos found in snapshots
+    const snaps = [];
+    for (const s of settled) {
+      if (s.status === "fulfilled" && s.value?.snap) snaps.push(s.value.snap);
+    }
+
+    if (snaps.length > 0) {
+      try {
+        await prefetchIssuesForBounties(snaps);
+      } catch (e) {
+        console.warn("prefetchIssuesForBounties failed:", e);
+      }
+    }
+
+    // Build new list off-DOM
+    const frag = document.createDocumentFragment();
+
+    for (let i = 0; i < settled.length; i++) {
+      const s = settled[i];
+      if (s.status === "fulfilled") {
+        frag.appendChild(renderBountyRow(s.value.entry, s.value.snap));
+      } else {
+        console.error("Snapshot failed for", all[i].address, s.reason);
+        frag.appendChild(renderBountyRow(all[i], null, s.reason));
+      }
+    }
+
+    bountiesListEl.replaceChildren(frag);
+  } finally {
+    cancelListTimer();
+    cancelSpinTimer();
+
+    if (nonce === bountiesLoadNonce) {
+      setListLoading(false);
+      setRefreshLoading(false);
+    }
   }
-
-  const canCreateSelected = isConnected && !!selectedIssue && hasPositiveFunding;
-  if (createFromSelectedButton) createFromSelectedButton.disabled = !canCreateSelected;
-}
-
-
-
-/* =====================================================================
-   SNAPSHOT SAFETY — POSITIONAL + NAMED FIELD ACCESS
-   - Supports both tuple arrays and named return objects from ethers ABI
-   - Lets UI survive snapshot shape changes during contract iteration
-   ===================================================================== */
-function safeGet(res, i, fallbackKey) {
-  try {
-    if (res && typeof res.length === "number" && i < res.length) return res[i];
-  } catch (_) {}
-  // fallback to named key if it exists
-  if (fallbackKey && res && res[fallbackKey] !== undefined) return res[fallbackKey];
-  return undefined;
 }
 
 /* =====================================================================
-   FORMAT HELPERS — SAFE ETHER DISPLAY
-   - Prevents UI crashes if a value is missing or not BigInt-compatible
-   ===================================================================== */
-function safeFormatEther(v) {
-  try {
-    if (v === null || v === undefined) return "—";
-    return ethers.formatEther(v);
-  } catch {
-    return "—";
-  }
-}
+   13) BOUNTY ROW RENDERING + DETAILS POPOVER
+===================================================================== */
 
-/* =====================================================================
-   RENDERING — SINGLE BOUNTY ROW
-   - Converts (factory index + snapshot data) into a DOM row element
-   - Hides “paid-only” fields unless bounty is in PAID state
-   - Falls back to an error-row when snapshot load fails
-   ===================================================================== */
 function renderBountyRow(base, snap, err) {
   const row = document.createElement("div");
-  row.className = "bounty-row";
+  row.className = "bounty-row bounty-row-compact";
 
+  // Error row
   if (err || !snap) {
     const msg = (err && (err.shortMessage || err.message)) || "Unknown error";
+    row.classList.add("bounty-state-empty");
+
     row.innerHTML = `
-      <div><strong>#${base.index}</strong> <span class="mono">${base.address}</span></div>
-      <div>Next attempt (factory): ${formatTimestamp(base.nextAttemptAt)}</div>
-      <div><em>Error loading snapshot</em></div>
-      <div class="mono">${msg}</div>
+      <div class="bounty-compact-title"><strong>#${base.index}</strong> — <span class="mono">(snapshot error)</span></div>
+      <div class="bounty-compact-funding">—</div>
+      <div class="bounty-compact-repo"><span class="mono">${shortAddr(base.address)}</span></div>
+      <button class="button kde bounty-compact-more" type="button" title="Details">⋯</button>
     `;
+
+    const btn = row.querySelector(".bounty-compact-more");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openBountyDetailsPopover(btn, {
+        title: `Bounty #${base.index} (snapshot error)`,
+        rows: [
+          ["Address", base.address],
+          ["Next update", formatTimestamp(base.nextAttemptAt)],
+          ["Error", msg],
+        ],
+      });
+    });
+
     return row;
   }
 
-  const r_state = safeGet(snap, 0, "r_state");
-  const r_owner = safeGet(snap, 1, "r_owner");
-  const r_repoOwner = safeGet(snap, 4, "r_repoOwner") ?? safeGet(snap, 4, "r_repo_owner");
-  const r_repo = safeGet(snap, 5, "r_repo");
-  const r_issueNumber = safeGet(snap, 6, "r_issueNumber");
-  const r_totalFunding = safeGet(snap, 7, "r_totalFunding");
-  const r_funderCount = safeGet(snap, 8, "r_funderCount");
-  const r_lastWinner = safeGet(snap, 9, "r_lastWinner");
-  const r_lastWinnerUser = safeGet(snap, 10, "r_lastWinnerUser");
-  const r_lastBountyAmount = safeGet(snap, 11, "r_lastBountyAmount");
+  // Snapshot fields (BountySnapshot struct)
+  const r_state = safeGet(snap, 0, "state");
+  const r_owner = safeGet(snap, 1, "owner");
+
+  const r_repoOwner = safeGet(snap, 4, "repoOwner");
+  const r_repo = safeGet(snap, 5, "repo");
+  const r_issueNumber = safeGet(snap, 6, "issueNumber");
+
+  const r_totalFunding = safeGet(snap, 7, "totalFunding");
+  const r_funderCount = safeGet(snap, 8, "funderCount");
+
+  const r_lastWinner = safeGet(snap, 9, "lastWinner");
+  const r_lastWinnerUser = safeGet(snap, 10, "lastWinnerUser");
+
+  const r_last_repoOwner = safeGet(snap, 11, "last_repo_owner");
+  const r_last_repo = safeGet(snap, 12, "last_repo");
+  const r_last_issueNumber = safeGet(snap, 13, "last_issueNumber");
+  const r_lastBountyAmount = safeGet(snap, 14, "lastBountyAmount");
 
   const stateNum = Number(r_state);
   const stateLabel = BOUNTY_STATE[stateNum] ?? (r_state !== undefined ? String(r_state) : "—");
-  const isPaid = stateLabel === "PAID"; // or: stateNum === 4
+  const isPaid = stateLabel === "PAID";
 
-  const paidRows = isPaid
-    ? `
-      <div>Last winner: <span class="mono">${r_lastWinner || "—"}</span> (${r_lastWinnerUser || "—"})</div>
-      <div>Last bounty amount: ${safeFormatEther(r_lastBountyAmount)} ETH</div>
-    `
-    : ""; // hidden when not PAID
+  // If the bounty is closed/completed, show the *last_* repo/issue values instead
+  const displayRepoOwner = (isPaid ? r_last_repoOwner : r_repoOwner) || r_repoOwner || r_last_repoOwner;
+  const displayRepo = (isPaid ? r_last_repo : r_repo) || r_repo || r_last_repo;
+  const displayIssueNumber = (isPaid ? r_last_issueNumber : r_issueNumber) || r_issueNumber || r_last_issueNumber;
+
+  const stateClass =
+    stateLabel === "READY"
+      ? "bounty-state-ready"
+      : stateLabel === "CALCULATING"
+      ? "bounty-state-calculating"
+      : stateLabel === "PAID"
+      ? "bounty-state-paid"
+      : stateLabel === "EMPTY"
+      ? "bounty-state-empty"
+      : "bounty-state-base";
+
+  row.classList.add(stateClass);
+
+  // Issue title from cache (populated via loadIssuesFromUI or prefetchIssuesForBounties)
+  const issueTitle = getCachedIssueTitle(displayRepoOwner, displayRepo, displayIssueNumber) || "(title unavailable)";
+
+  const issueStr = `#${displayIssueNumber ?? "—"} — ${issueTitle}`;
+  const repoStr = `${displayRepoOwner || "—"}/${displayRepo || "—"}`;
 
   row.innerHTML = `
-    <div><strong>#${base.index}</strong> <span class="mono">${base.address}</span> (${shortAddr(base.address)})</div>
-    <div><strong>${r_repoOwner || "—"}/${r_repo || "—"} #${r_issueNumber || "—"}</strong></div>
-    <div>Owner: <span class="mono">${r_owner || "—"}</span></div>
-    <div>State: ${stateLabel}</div>
-    <div>Funding: ${safeFormatEther(r_totalFunding)} ETH</div>
-    <div>Funders: ${r_funderCount ?? "—"}</div>
-    <div>Next update: ${formatTimestamp(base.nextAttemptAt)}</div>
-    ${paidRows}
+    <div class="bounty-compact-title" title="${escapeAttr(issueStr)}">
+      <strong>#${displayIssueNumber ?? "—"}</strong> — ${escapeHtml(issueTitle)}
+    </div>
+
+    <div class="bounty-compact-funding" title="Total funding">
+      ${safeFormatEther(r_totalFunding)} ETH
+    </div>
+
+    <div class="bounty-compact-repo" title="${escapeAttr(repoStr)}">
+      ${escapeHtml(repoStr)}
+    </div>
+
+    <button class="button kde bounty-compact-more" type="button" title="Details">⋯</button>
   `;
+
+  const btn = row.querySelector(".bounty-compact-more");
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    const detailsRows = [
+      ["Bounty index", String(base.index)],
+      ["Bounty address", base.address],
+      ["Repo", repoStr],
+      ["Issue", `#${displayIssueNumber ?? "—"}`],
+      ["State", stateLabel],
+      ["Funding", `${safeFormatEther(r_totalFunding)} ETH`],
+      ["Funders", r_funderCount ?? "—"],
+      ["Owner", r_owner || "—"],
+      ["Next update", formatTimestamp(base.nextAttemptAt)],
+    ];
+
+    if (isPaid) {
+      detailsRows.push(
+        ["(Last) Repo", `${r_last_repoOwner || "—"}/${r_last_repo || "—"}`],
+        ["(Last) Issue", `#${r_last_issueNumber ?? "—"}`],
+        ["Last winner", r_lastWinner || "—"],
+        ["Winner user", r_lastWinnerUser || "—"],
+        ["Last bounty", `${safeFormatEther(r_lastBountyAmount)} ETH`]
+      );
+    }
+
+    openBountyDetailsPopover(btn, {
+      title: `${repoStr} #${displayIssueNumber ?? "—"}`,
+      subtitle: issueTitle,
+      rows: detailsRows,
+      // link: getCachedIssueUrl?.(r_repoOwner, r_repo, r_issueNumber) || null,
+    });
+  });
 
   return row;
 }
 
-/* =====================================================================
-   CREATE BOUNTY — INPUT NORMALIZATION
-   - Small helper to trim inputs consistently (safe for missing elements)
-   ===================================================================== */
-function readInput(el) {
-  return (el?.value || "").trim();
+function openBountyDetailsPopover(anchorBtnEl, data) {
+  if (!bountyPopoverEl) return;
+
+  const title = data.title || "Details";
+  const subtitle = data.subtitle
+    ? `<div class="mono" style="opacity:.9; margin-bottom:8px;">${escapeHtml(data.subtitle)}</div>`
+    : "";
+
+  const rowsHtml = (data.rows || [])
+    .map(([k, v]) => `<div class="details-k">${escapeHtml(k)}</div><div class="details-v">${escapeHtml(v)}</div>`)
+    .join("");
+
+  bountyPopoverEl.innerHTML = `
+    <div style="font-weight:700; margin-bottom:6px;">${escapeHtml(title)}</div>
+    ${subtitle}
+    <div class="details-grid">${rowsHtml}</div>
+  `;
+
+  bountyPopoverEl.hidden = false;
+
+  const btnRect = anchorBtnEl.getBoundingClientRect();
+  const popW = Math.min(520, window.innerWidth - 24);
+  bountyPopoverEl.style.width = popW + "px";
+
+  const margin = 10;
+  let left = Math.min(btnRect.right - popW, window.innerWidth - popW - margin);
+  left = Math.max(margin, left);
+
+  let top = btnRect.bottom + 8;
+  const maxTop = window.innerHeight - bountyPopoverEl.offsetHeight - margin;
+  if (top > maxTop) top = Math.max(margin, btnRect.top - bountyPopoverEl.offsetHeight - 8);
+
+  bountyPopoverEl.style.left = `${left}px`;
+  bountyPopoverEl.style.top = `${top}px`;
+
+  bountyPopoverEl.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+  if (!popoverOutsideHandlerBound) {
+    popoverOutsideHandlerBound = true;
+    window.addEventListener("pointerdown", () => {
+      if (!bountyPopoverEl.hidden) bountyPopoverEl.hidden = true;
+    });
+  }
 }
+
+/* =====================================================================
+   14) STARTUP
+===================================================================== */
 
 async function startup() {
   if (!window.ethereum) {
@@ -676,9 +945,3 @@ async function startup() {
 }
 
 startup();
-
-// vercel serverless function
-// http://localhost:3000/api/issues?owner=j-dabrowski&repo=GitBounty_25&per_page=5
-//const url = `/api/issues?owner=${owner}&repo=${repo}&page=1&per_page=30`;
-//const data = await fetch(url).then(r => r.json());
-

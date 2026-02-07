@@ -39,6 +39,28 @@ contract Gitbounty {
         PAID
     }
 
+    struct BountySnapshot {
+        GitbountyState state;
+        address owner;
+        address factory;
+        bool initialized;
+
+        string repoOwner;
+        string repo;
+        string issueNumber;
+
+        uint256 totalFunding;
+        uint256 funderCount;
+
+        address lastWinner;
+        string lastWinnerUser;
+
+        string last_repo_owner;
+        string last_repo;
+        string last_issueNumber;
+
+        uint256 lastBountyAmount;
+    }
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -452,44 +474,28 @@ contract Gitbounty {
         return s_lastResponse;
     }
 
-    function getBountySnapshot()
-        external
-        view
-        returns (
-            GitbountyState r_state,
-            address r_owner,
-            address r_factory,
-            bool r_initialized,
-            string memory r_repoOwner,
-            string memory r_repo,
-            string memory r_issueNumber,
-            uint256 r_totalFunding,
-            uint256 r_funderCount,
-            address r_lastWinner,
-            string memory r_lastWinnerUser,
-            uint256 r_lastBountyAmount
-        )
-    {
-        // Explicit storage → memory copies
-        string memory repo_owner_ = repo_owner;
-        string memory repo_ = repo;
-        string memory issueNumber_ = issueNumber;
-        string memory lastWinnerUser_ = lastWinnerUser;
+    function getBountySnapshot() external view returns (BountySnapshot memory s) {
+        s.state = s_gitbountyState;
+        s.owner = owner;
+        s.factory = factory;
+        s.initialized = initialized;
 
-        return (
-            s_gitbountyState,
-            owner,
-            factory,
-            initialized,
-            repo_owner_,
-            repo_,
-            issueNumber_,
-            s_totalFunding,
-            s_funderCount,
-            s_lastWinner,
-            lastWinnerUser_,
-            last_BountyAmount
-        );
+        s.repoOwner = repo_owner;
+        s.repo = repo;
+        s.issueNumber = issueNumber;
+
+        s.totalFunding = s_totalFunding;
+        s.funderCount = s_funderCount;
+
+        s.lastWinner = s_lastWinner;
+        s.lastWinnerUser = lastWinnerUser;
+
+        s.last_repo_owner = last_repo_owner;
+        s.last_repo = last_repo;
+        s.last_issueNumber = last_issueNumber;
+
+        s.lastBountyAmount = last_BountyAmount;
     }
+
 
 }
