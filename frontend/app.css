@@ -402,3 +402,175 @@ input[type="text"] {
     overflow-y: auto;
   }
 }
+
+
+
+
+/* =========================================================
+   11) Bounty rows — compact layout + state tint + details popover
+   ========================================================= */
+
+/* Compact layout wrapper (keeps your existing .bounty-row skin) */
+.bounty-row.bounty-row-compact {
+  padding: 10px 12px;              /* a touch tighter than your 12px 16px */
+  display: grid;
+  grid-template-columns: 1fr auto; /* left stack | right stack */
+  grid-template-rows: auto auto;   /* title row | meta row */
+  column-gap: 12px;
+  row-gap: 6px;
+}
+
+/* Top-left: "#123 — Title" */
+.bounty-compact-title {
+  grid-column: 1;
+  grid-row: 1;
+  font-weight: 700;
+  line-height: 1.15;
+  min-width: 0;
+
+  /* keep titles compact */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bottom-left: "owner/repo" */
+.bounty-compact-repo {
+  grid-column: 1;
+  grid-row: 2;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  opacity: 0.85;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Top-right: funding */
+.bounty-compact-funding {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Bottom-right: details icon button */
+.bounty-compact-more {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Make the icon button feel KDE-ish without fighting your .button skin */
+.bounty-compact-more.button.kde {
+  min-width: unset;
+}
+
+/* ---------- State tint backgrounds ----------
+   These are subtle overlays so your KDE bevel/borders still read.
+   Apply one of these classes on the bounty row container:
+   .bounty-state-base / empty / ready / calculating / paid
+*/
+.bounty-row.bounty-state-base {
+  background-image: linear-gradient(to bottom, rgba(0,0,0,0.00), rgba(0,0,0,0.02));
+}
+
+.bounty-row.bounty-state-empty {
+  background-image: linear-gradient(to bottom, rgba(160,160,160,0.15), rgba(160,160,160,0.06));
+}
+
+.bounty-row.bounty-state-ready {
+  background-image: linear-gradient(to bottom, rgba(110,190,120,0.22), rgba(110,190,120,0.08));
+}
+
+.bounty-row.bounty-state-calculating {
+  background-image: linear-gradient(to bottom, rgba(255,210,90,0.26), rgba(255,210,90,0.10));
+}
+
+.bounty-row.bounty-state-paid {
+  background-image: linear-gradient(to bottom, rgba(120,160,255,0.24), rgba(120,160,255,0.09));
+}
+
+/* Optional: tiny badge style if you ever add it later */
+.bounty-state-pill {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--kde-border);
+  box-shadow: inset 0 0 0 1px var(--kde-highlight);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* ---------- Details popover ----------
+   Single shared popover element, positioned by JS.
+   IMPORTANT: allow text selection; prevent click-off close only when clicking inside.
+*/
+#bountyDetailsPopover {
+  position: fixed; /* fixed so it doesn't get clipped by #app overflow:hidden */
+  z-index: 9999;
+
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(420px, calc(100vh - 24px));
+  overflow: auto;
+
+  background: var(--kde-panel);
+  border: 1px solid var(--kde-border);
+  box-shadow:
+    inset 0 0 0 1px var(--kde-highlight),
+    4px 4px 0 rgba(0,0,0,0.25);
+
+  border-radius: 4px;
+  padding: 10px 12px;
+
+  user-select: text; /* selectable text */
+}
+
+#bountyDetailsPopover[hidden] {
+  display: none;
+}
+
+#bountyDetailsPopover .details-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 10px;
+  align-items: start;
+}
+
+#bountyDetailsPopover .details-k {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+#bountyDetailsPopover .details-v {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* Keep links readable in KDE palette */
+#bountyDetailsPopover a {
+  color: #0033aa;
+  text-decoration: underline;
+}
