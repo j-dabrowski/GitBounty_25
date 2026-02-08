@@ -368,7 +368,7 @@ function getCachedIssueUrl(owner, repo, issueNumber) {
 }
 
 async function fetchIssuesFromApi({ owner, repo, state = "open", per_page = 50, page = 1 } = {}) {
-  const url = new URL("/api/issues", apiOrigin);
+  const url = new URL("/api/issues", window.location.origin);
   url.searchParams.set("owner", owner);
   url.searchParams.set("repo", repo);
   url.searchParams.set("state", state);

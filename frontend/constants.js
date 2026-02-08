@@ -16,7 +16,7 @@ export const READ_RPC_URLS = [
   "https://sepolia.drpc.org",
 ];
 
-export const API_ORIGIN = "http://localhost:3000";
+export const API_ORIGIN = "";
 
 export const factoryAddress = "0x5daD63916C4e6F2322F77621dbb61E015F467Aeb";
 
