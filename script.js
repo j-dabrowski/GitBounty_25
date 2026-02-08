@@ -70,7 +70,7 @@ for (const item of results.items) {
     pr &&
     pr.merged_at &&        // must be merged
     pr.base &&
-    pr.base.ref === "main" && // merged into main
+    (pr.base.ref === "main" || pr.base.ref === "master") && // merged into main
     pr.user &&
     pr.user.login          // author username
   ) {

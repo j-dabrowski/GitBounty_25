@@ -250,6 +250,19 @@ setAutomationParams:
 		$(RPC_ONLY) \
 		--private-key $(PRIVATE_KEY)
 
+set-source:
+	@echo "Setting Functions source..."
+	cast send $(FACTORY_ADDRESS) \
+		"setSource(string)" \
+		"$$(cat script.js)" \
+		$(RPC_AND_KEY)
+
+get-source:
+	@echo "Fetching Functions source from chain..."
+	cast call $(FACTORY_ADDRESS) \
+		"source()(string)" \
+		$(RPC_ONLY)
+
 OWNER ?=
 REPO ?=
 ISSUE ?=
@@ -294,6 +307,5 @@ bountySnapshot:
 		exit 1; \
 	fi
 	cast call $(BOUNTY_ADDRESS) \
-		"getBountySnapshot()(uint8,address,address,bool,string,string,string,uint256,uint256,address,string,uint256)" \
+		"getBountySnapshot()((uint8,address,address,bool,string,string,string,uint256,uint256,address,string,string,string,string,uint256))" \
 		$(RPC_ONLY)
-
