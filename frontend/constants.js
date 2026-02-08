@@ -10,7 +10,6 @@ export const chainIdMap = {
 };
 
 export const READ_RPC_URLS = [
-  "https://rpc.sepolia.org",
   "https://rpc.ankr.com/eth_sepolia",
   "https://ethereum-sepolia.publicnode.com",
   "https://sepolia.drpc.org",

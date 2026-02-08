@@ -40,6 +40,12 @@ const bountiesListEl = document.getElementById("bountiesList");
 
 // BUTTONS
 const connectButton = document.getElementById("connectButton");
+if (!hasInjectedWallet()) {
+  connectButton.disabled = true;
+  connectButton.textContent = "MetaMask not installed";
+  connectButton.title = "Install MetaMask to connect a wallet";
+}
+
 const refreshButton = document.getElementById("refreshButton");
 
 // ISSUE BROWSER REFERENCES
@@ -149,7 +155,6 @@ function setConnectedUI(chainId) {
 
   pressButton(connectButton, true);
   connectButton.innerHTML = `Connected: ${short} on ${networkName}`;
-  refreshButton.disabled = false;
 
   updateCreateControls();
 }
@@ -191,6 +196,32 @@ function updateCreateControls() {
    7) PROVIDERS + WALLET / ACCOUNT HELPERS
 ===================================================================== */
 
+async function probeRpc(url, ms = 1500) {
+  const provider = new ethers.JsonRpcProvider(
+    url,
+    { name: "sepolia", chainId: 11155111 } // pin network
+  );
+
+  try {
+    await Promise.race([
+      provider.getBlockNumber(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("RPC timeout")), ms)),
+    ]);
+    return provider; // keep this one
+  } catch (err) {
+    // IMPORTANT: stop ethers retry loop
+    try { provider.destroy(); } catch (_) {}
+    throw err;
+  }
+}
+
+function withTimeout(promise, ms, label = "timeout") {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(label)), ms)),
+  ]);
+}
+
 async function initReadProvider() {
   try {
     let provider;
@@ -200,29 +231,25 @@ async function initReadProvider() {
     } else {
       for (const url of READ_RPC_URLS) {
         try {
-          const providerTest = new ethers.JsonRpcProvider(url);
-          await providerTest.getBlockNumber(); // sanity check
-          provider = providerTest;
+          provider = await probeRpc(url, 1500);
           break;
         } catch (_) {}
       }
     }
 
-    if (!provider) {
-      throw new Error("No working read RPC available (all READ_RPC_URLS failed).");
-    }
+    if (!provider) throw new Error("No working read RPC available.");
 
     readProvider = provider;
     readFactory = new ethers.Contract(factoryAddress, factoryAbi, readProvider);
-
     return true;
   } catch (e) {
     console.error(e);
-    bountiesListEl.innerHTML = `
-      <div class="bounty-row"><em>${escapeHtml(e.message)}</em></div>
-    `;
     return false;
   }
+}
+
+function hasInjectedWallet() {
+  return typeof window.ethereum !== "undefined";
 }
 
 function handleAccountChange() {
@@ -931,16 +958,18 @@ function openBountyDetailsPopover(anchorBtnEl, data) {
 ===================================================================== */
 
 async function startup() {
-  if (!window.ethereum) {
-    connectButton.disabled = true;
-    connectButton.innerHTML = "MetaMask not installed";
-  }
+  setRefreshLoading(true);
+  setListLoading(true);
 
   initFactoryHeaderUI();
 
   const ok = await initReadProvider();
+
   if (ok) {
     await loadBountiesView();
+  } else {
+    setRefreshLoading(false);
+    setListLoading(false);
   }
 }
 
