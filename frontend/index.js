@@ -62,6 +62,9 @@ const issuesFundingEthInput = document.getElementById("issuesFundingEthInput");
 const bountyPopoverEl = document.getElementById("bountyDetailsPopover");
 let popoverOutsideHandlerBound = false;
 
+// Track which button is currently active (for toggle behavior)
+let activeBountyInfoBtn = null;
+
 /* =====================================================================
    3) EVENTS / WIRING
 ===================================================================== */
@@ -911,6 +914,23 @@ function renderBountyRow(base, snap, err) {
 function openBountyDetailsPopover(anchorBtnEl, data) {
   if (!bountyPopoverEl) return;
 
+  // Toggle behavior: clicking the already-active button closes the popover
+  if (activeBountyInfoBtn === anchorBtnEl) {
+    bountyPopoverEl.hidden = true;
+    pressButton(anchorBtnEl, false);
+    activeBountyInfoBtn = null;
+    return;
+  }
+
+  // Depress the previously active button (if any)
+  if (activeBountyInfoBtn && activeBountyInfoBtn !== anchorBtnEl) {
+    pressButton(activeBountyInfoBtn, false);
+  }
+
+  // Mark the new button as active/pressed
+  pressButton(anchorBtnEl, true);
+  activeBountyInfoBtn = anchorBtnEl;
+
   const title = data.title || "Details";
   const subtitle = data.subtitle
     ? `<div class="mono" style="opacity:.9; margin-bottom:8px;">${escapeHtml(data.subtitle)}</div>`
@@ -948,7 +968,13 @@ function openBountyDetailsPopover(anchorBtnEl, data) {
   if (!popoverOutsideHandlerBound) {
     popoverOutsideHandlerBound = true;
     window.addEventListener("pointerdown", () => {
-      if (!bountyPopoverEl.hidden) bountyPopoverEl.hidden = true;
+      if (!bountyPopoverEl.hidden) {
+        bountyPopoverEl.hidden = true;
+        if (activeBountyInfoBtn) {
+          pressButton(activeBountyInfoBtn, false);
+          activeBountyInfoBtn = null;
+        }
+      }
     });
   }
 }
