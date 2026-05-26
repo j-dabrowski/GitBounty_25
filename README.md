@@ -149,7 +149,6 @@ _Chainlink Functions_
 _Chainlink Automation_
 
 1. Create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-2. Get the subscription ID and store it in config/eth-sepolia.json
 
 #### Environment variables
 
@@ -197,6 +196,9 @@ ETHERSCAN_API_KEY -- set now
 - Generates offchain-secrets.json file containing encrypted GITHUB_SECRET from env-enc
 
 3. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
+
+   `https://docs.aws.amazon.com/AmazonS3/latest/userguide/GetStartedWithS3.html#uploading-an-object-bucket`
+
 4. Set the Amazon Web Bucket URL as an encrypted local variable
 
    `npx env-enc set`
@@ -486,6 +488,28 @@ Create and fund a bounty on an existing deployed child contract, sending BOUNTY_
 
 ---
 
+### Web3 Interface
+
+To update the Web UI's abi,
+
+```
+cast interface out/GitbountyFactory.sol/GitbountyFactory.json \
+  | awk '/^[[:space:]]+(function|event|error) /' \
+  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
+  | pbcopy && pbpaste | head -20
+```
+
+```
+cast interface out/Gitbounty.sol/Gitbounty.json \
+  | awk '/^[[:space:]]+(function|event|error) /' \
+  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
+  | pbcopy && pbpaste | head -20
+```
+
+Paste the results into constants.js under factoryAbi and bountyAbi.
+
+---
+
 ### Unsorted Notes
 
 Clone the official chainlink functions examples repo in another directory.
@@ -546,13 +570,11 @@ check if correct values returned by script
 - Check if all variables that can be set/reset by creating or completing a bounty can be checked via getter. So we are able to test if everything gets reset.
 - Check how bounty behaves with certain arguments set and some not etc. Such as repo set, but not repo_owner, or bounty value = 0
 - implement User funding of Automation and Functions
-
   - only attempt bounties that have prepaid credits and use those credits as your internal economic gate then you (as operator) fund the Automation upkeep + Functions sub globally (LINK) and you set your fees so that overall you don’t lose money
 
 - Add automation toggle helper to factory (to optionally turn off automation)
 
 - Live testnet test routines:
-
   - Toggle off automation
   - Deploy 1 bounty
   - manually perform upkeep
