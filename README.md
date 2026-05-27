@@ -494,28 +494,6 @@ To update the Web UI's abi,
 
 ```
 cast interface out/GitbountyFactory.sol/GitbountyFactory.json \
-  | awk '/^[[:space:]]+(function|event|error) /' \
-  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
-  | pbcopy && pbpaste | head -20
-```
-
-```
-cast interface out/Gitbounty.sol/Gitbounty.json \
-  | awk '/^[[:space:]]+(function|event|error) /' \
-  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
-  | pbcopy && pbpaste | head -20
-```
-
-Paste the results into constants.js under factoryAbi and bountyAbi.
-
----
-
-### Web3 Interface
-
-To update the Web UI's abi,
-
-```
-cast interface out/GitbountyFactory.sol/GitbountyFactory.json \
     | awk '{buf = buf " " $0} /;[[:space:]]*$/{print buf; buf=""}' \
     | awk '/[[:space:]](function|event|error)[[:space:]]/' \
     | sed -E 's/^.*(function|event|error) /\1 /; s/ external//g; s/ memory//g; s/;[[:space:]]*$//; s/ [[:space:]]+/ /g; s/.*/  "&",/' \
