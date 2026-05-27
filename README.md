@@ -149,7 +149,6 @@ _Chainlink Functions_
 _Chainlink Automation_
 
 1. Create a chainlink automation upkeep and top it up with link token: https://automation.chain.link/
-2. Get the subscription ID and store it in config/eth-sepolia.json
 
 #### Environment variables
 
@@ -197,6 +196,9 @@ ETHERSCAN_API_KEY -- set now
 - Generates offchain-secrets.json file containing encrypted GITHUB_SECRET from env-enc
 
 3. Upload offchain-secrets.json to Amazon Web Bucket and copy the url
+
+   `https://docs.aws.amazon.com/AmazonS3/latest/userguide/GetStartedWithS3.html#uploading-an-object-bucket`
+
 4. Set the Amazon Web Bucket URL as an encrypted local variable
 
    `npx env-enc set`
@@ -483,6 +485,28 @@ MAX_PERFORM — max bounties processed per upkeep
 Create and fund a bounty on an existing deployed child contract, sending BOUNTY_VALUE as msg.value and setting the GitHub issue coordinates.
 
 `make createBountyExisting BOUNTY_ADDRESS=0x... REPO_OWNER=... REPO=... ISSUE_NUMBER=... BOUNTY_VALUE=...`
+
+---
+
+### Web3 Interface
+
+To update the Web UI's abi,
+
+```
+cast interface out/GitbountyFactory.sol/GitbountyFactory.json \
+  | awk '/^[[:space:]]+(function|event|error) /' \
+  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
+  | pbcopy && pbpaste | head -20
+```
+
+```
+cast interface out/Gitbounty.sol/Gitbounty.json \
+  | awk '/^[[:space:]]+(function|event|error) /' \
+  | sed -E 's/^[[:space:]]+//; s/ external//g; s/ memory//g; s/;$//; s/.*/  "&",/' \
+  | pbcopy && pbpaste | head -20
+```
+
+Paste the results into constants.js under factoryAbi and bountyAbi.
 
 ---
 

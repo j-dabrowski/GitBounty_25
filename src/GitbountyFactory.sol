@@ -68,6 +68,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     error OnlySelf();
     error GitbountyFactory__SendNonZeroEth();
     error UsernameRequired();
+    error InvalidBatchSize(uint256 size, uint256 maxAllowed);
 
     /*//////////////////////////////////////////////////////////////
                           CLONE / IMPLEMENTATION
@@ -86,11 +87,12 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     /*//////////////////////////////////////////////////////////////
                               AUTOMATION CONFIG
     //////////////////////////////////////////////////////////////*/
-    uint256 private retryInterval = 5 minutes; //1 days;
+    uint256 private retryInterval = 1 days;
+    uint256 public manualRetryInterval = 5 minutes;
 
     // Bound scan work so upkeep doesn't run out of gas.
     uint256 private maxScan = 50;
-    uint256 private maxPerform = 1;
+    uint256 private maxPerform = 3;
 
     // Round-robin scanning cursor
     uint256 private scanIndex;
@@ -110,6 +112,7 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     // Scheduling
     mapping(address => bool) private isOpen; // factory's view of open/closed
     mapping(address => uint256) private nextAttemptAt;
+    mapping(address => uint256) private nextManualAttemptAt;
     mapping(address => bool) public inFlight;
 
     /*//////////////////////////////////////////////////////////////
@@ -132,7 +135,8 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
     event RequestSent(bytes32 indexed requestId, address indexed bounty);
     event RequestForwarded(bytes32 indexed requestId, address indexed bounty);
     event UpkeepSelected(uint256 indexed at, address[] selected);
-
+    event ManualUpkeepTriggered(address indexed bounty, address indexed caller, bytes32 indexed requestId);
+    event ManualUpkeepSkipped(address indexed bounty, string reason);
     event FunctionsRequestFailed(address indexed bounty, string reason, bytes lowLevelData);
 
     /*//////////////////////////////////////////////////////////////
@@ -278,6 +282,26 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         maxPerform = _maxPerform;
     }
 
+    function getAutomationParams()
+        external
+        view
+        returns (
+            uint256 retryInterval_,
+            uint256 maxScan_,
+            uint256 maxPerform_,
+            uint256 manualRetryInterval_
+        )
+    {
+        retryInterval_        = retryInterval;
+        maxScan_              = maxScan;
+        maxPerform_           = maxPerform;
+        manualRetryInterval_  = manualRetryInterval;
+    }
+
+    function setManualRetryInterval(uint256 _manualRetryInterval) external onlyOwner {
+        manualRetryInterval = _manualRetryInterval;
+    }
+
     /*//////////////////////////////////////////////////////////////
                         ELIGIBILITY
     //////////////////////////////////////////////////////////////*/
@@ -297,17 +321,41 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
         return _eligible(bounty);
     }
 
+    function _eligibleManual(address bounty) internal view returns (bool) {
+        if (!isRegistered[bounty]) return false;
+        if (!isOpen[bounty]) return false;
+        if (inFlight[bounty]) return false;
+        if (block.timestamp < nextManualAttemptAt[bounty]) return false;
+        if (!IGitbountyChild(bounty).isBountyReady()) return false;
+        return true;
+    }
+
+    function isEligibleManual(address bounty) external view returns (bool eligible) {
+        return _eligibleManual(bounty);
+    }
+
     function eligibilityBreakdown(address bounty)
         external
         view
-        returns (bool registered, bool open, bool notInFlight, bool timeOk, bool childReady, uint256 nextAt)
+        returns (
+            bool registered,
+            bool open,
+            bool notInFlight,
+            bool timeOk,
+            bool childReady,
+            uint256 nextAt,
+            bool manualTimeOk,
+            uint256 nextManualAt
+        )
     {
-        registered = isRegistered[bounty];
-        open = isOpen[bounty];
-        notInFlight = !inFlight[bounty];
-        childReady = IGitbountyChild(bounty).isBountyReady();
-        nextAt = nextAttemptAt[bounty];
-        timeOk = block.timestamp >= nextAt;
+        registered     = isRegistered[bounty];
+        open           = isOpen[bounty];
+        notInFlight    = !inFlight[bounty];
+        childReady     = IGitbountyChild(bounty).isBountyReady();
+        nextAt         = nextAttemptAt[bounty];
+        timeOk         = block.timestamp >= nextAt;
+        nextManualAt   = nextManualAttemptAt[bounty];
+        manualTimeOk   = block.timestamp >= nextManualAt;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -412,6 +460,76 @@ contract GitbountyFactory is FunctionsClient, AutomationCompatibleInterface, Con
             }
 
             emit RequestSent(requestId, bounty);
+        }
+    }
+    
+    /// @notice User-facing manual upkeep over a chosen subset of bounties.
+    /// @dev Mirrors performUpkeep but: (a) caller supplies the array directly,
+    ///      (b) gated by manualRetryInterval (independent of Automation cooldown),
+    ///      (c) reverts on batch-shape errors, skips-and-emits on per-bounty errors.
+    function manualPerformUpkeep(address[] calldata selected) external {
+        uint256 batchSize = selected.length;
+        if (batchSize == 0 || batchSize > maxPerform) {
+            revert InvalidBatchSize(batchSize, maxPerform);
+        }
+
+        for (uint256 i = 0; i < batchSize; i++) {
+            address bounty = selected[i];
+
+            // ---- per-bounty eligibility (skip-and-emit) ----
+            if (!isRegistered[bounty])  { emit ManualUpkeepSkipped(bounty, "not registered"); continue; }
+            if (!isOpen[bounty])        { emit ManualUpkeepSkipped(bounty, "not open");       continue; }
+            if (inFlight[bounty])       { emit ManualUpkeepSkipped(bounty, "in flight");      continue; }
+            if (block.timestamp < nextManualAttemptAt[bounty]) {
+                emit ManualUpkeepSkipped(bounty, "manual cooldown"); continue;
+            }
+            if (!IGitbountyChild(bounty).isBountyReady()) {
+                emit ManualUpkeepSkipped(bounty, "child not ready"); continue;
+            }
+
+            // ---- build args ----
+            (string memory repoOwner, string memory repo, string memory issueNumber) =
+                IGitbountyChild(bounty).getArgs();
+            if (bytes(repoOwner).length == 0 || bytes(repo).length == 0 || bytes(issueNumber).length == 0) {
+                emit ManualUpkeepSkipped(bounty, "invalid args"); continue;
+            }
+
+            string[] memory args = new string[](3);
+            args[0] = repoOwner;
+            args[1] = repo;
+            args[2] = issueNumber;
+
+            // ---- send via self-call wrapper (matches Automation resilience) ----
+            bytes32 requestId;
+            try this._sendFunctionsRequestExternal(args) returns (bytes32 rid) {
+                requestId = rid;
+            } catch Error(string memory reason) {
+                emit FunctionsRequestFailed(bounty, reason, "");
+                continue;
+            } catch (bytes memory lowLevelData) {
+                emit FunctionsRequestFailed(bounty, "low-level", lowLevelData);
+                continue;
+            }
+
+            // ---- commit MANUAL scheduling state only (nextAttemptAt deliberately untouched) ----
+            nextManualAttemptAt[bounty] = block.timestamp + manualRetryInterval;
+            inFlight[bounty] = true;
+            requestToBounty[requestId] = bounty;
+
+            // ---- forward to child ----
+            try IGitbountyChild(bounty).markCalculating(requestId) {
+                lastRequestForBounty[bounty] = requestId;
+            } catch {
+                // UNDO everything we just committed
+                delete requestToBounty[requestId];
+                inFlight[bounty] = false;
+                nextManualAttemptAt[bounty] = block.timestamp;
+                emit ManualUpkeepSkipped(bounty, "markCalculating failed");
+                continue;
+            }
+
+            emit RequestSent(requestId, bounty);
+            emit ManualUpkeepTriggered(bounty, msg.sender, requestId);
         }
     }
 

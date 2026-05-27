@@ -42,11 +42,20 @@ endif
 
 # ---------- Phony ----------
 
-.PHONY: deployFactory deployBounty \
-	factoryPerformSingle factoryCheckUpkeep factoryMapUsername \
-	bountyCreateAndFund
-
-.PHONY: checkSecrets checkConfig
+.PHONY: deployFactory deployBounty deployBountyImpl \
+	checkNetwork checkSecrets checkConfig checkEvent \
+	factoryMapUsername factoryCheckUsernameMap \
+	factoryCheckUpkeep \
+	factoryAutomationPerformSingle factoryAutomationPerformMany \
+	factoryAutomationPerformFromData factoryAutomationCheckAndPerform \
+	factoryManualPerformSingle factoryManualPerformMany \
+	factoryBountyIsEligibleAutomation factoryBountyIsEligibleManual \
+	factoryEligibilityBreakdown \
+	factoryGetAutomationParams factoryBountiesCount factoryGetBounties \
+	setAutomationParams setManualRetryInterval \
+	set-source get-source \
+	createBountyExisting \
+	bountyArgs checkBountyReady checkBountyHasFactory bountySnapshot
 
 # ---------- Check Secrets ----------
 
@@ -140,7 +149,7 @@ factoryCheckUpkeep:
 	cast call $(FACTORY_ADDRESS) "checkUpkeep(bytes)(bool,bytes)" 0x \
 		$(RPC_ONLY)
 
-factoryPerformSingle:
+factoryAutomationPerformSingle:
 	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
 		echo "Error: BOUNTY_ADDRESS not set"; \
 		exit 1; \
@@ -150,7 +159,16 @@ factoryPerformSingle:
 		$(RPC_AND_KEY) \
 		--gas-limit 2000000 -vvvv
 
-factoryPerformMany:
+factoryManualPerformSingle:
+	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
+		echo "Error: BOUNTY_ADDRESS not set"; \
+		exit 1; \
+	fi
+	cast send $(FACTORY_ADDRESS) "manualPerformUpkeep(address[])" "[$(BOUNTY_ADDRESS)]" \
+		$(RPC_AND_KEY) \
+		--gas-limit 2000000 -vvvv
+
+factoryAutomationPerformMany:
 	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
 		echo "Error: BOUNTY_ADDRESS not set (comma-separated)"; \
 		exit 1; \
@@ -163,17 +181,29 @@ factoryPerformMany:
 		$(RPC_AND_KEY) \
 		--gas-limit 3000000 -vvvv
 
-factoryPerformFromData:
+factoryManualPerformMany:
+	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
+		echo "Error: BOUNTY_ADDRESS not set (single or comma-separated)"; \
+		exit 1; \
+	fi
+	@CLEAN=$$(echo "$(BOUNTY_ADDRESS)" | tr -d ' '); \
+	ARR="[$$CLEAN]"; \
+	echo "Manual perform upkeep for bounties: $$ARR"; \
+	cast send $(FACTORY_ADDRESS) "manualPerformUpkeep(address[])" "$$ARR" \
+		$(RPC_AND_KEY) \
+		--gas-limit 3000000 -vvvv
+
+factoryAutomationPerformFromData:
 	@if [ -z "$(DATA)" ]; then \
 		echo "Error: DATA not set (paste the bytes from checkUpkeep)"; \
-		echo "Example: make factoryPerformFromData DATA=0x..."; \
+		echo "Example: make factoryAutomationPerformFromData DATA=0x..."; \
 		exit 1; \
 	fi
 	cast send $(FACTORY_ADDRESS) "performUpkeep(bytes)" "$(DATA)" \
 		$(RPC_AND_KEY) \
 		--gas-limit 3000000 -vvvv
 
-factoryCheckAndPerform:
+factoryAutomationCheckAndPerform:
 	@OUT=$$(cast call $(FACTORY_ADDRESS) "checkUpkeep(bytes)(bool,bytes)" 0x $(RPC_ONLY)); \
 	ELIGIBLE=$$(echo "$$OUT" | sed -n '1p' | tr -d '\r'); \
 	DATA=$$(echo "$$OUT" | sed -n '2p' | tr -d '\r'); \
@@ -187,13 +217,23 @@ factoryCheckAndPerform:
 		$(RPC_AND_KEY) \
 		--gas-limit 3000000 -vvvv
 
-factoryBountyIsEligible:
+factoryBountyIsEligibleAutomation:
 	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
-		echo "Error: BOUNTY_ADDRESS not set. Usage: make factoryBountyIsEligible BOUNTY_ADDRESS=0x..."; \
+		echo "Error: BOUNTY_ADDRESS not set. Usage: make factoryBountyIsEligibleAutomation BOUNTY_ADDRESS=0x..."; \
 		exit 1; \
 	fi
 	cast call $(FACTORY_ADDRESS) \
 		"isEligible(address)(bool)" \
+		$(BOUNTY_ADDRESS) \
+		$(RPC_ONLY)
+
+factoryBountyIsEligibleManual:
+	@if [ -z "$(BOUNTY_ADDRESS)" ]; then \
+		echo "Error: BOUNTY_ADDRESS not set. Usage: make factoryBountyIsEligibleManual BOUNTY_ADDRESS=0x..."; \
+		exit 1; \
+	fi
+	cast call $(FACTORY_ADDRESS) \
+		"isEligibleManual(address)(bool)" \
 		$(BOUNTY_ADDRESS) \
 		$(RPC_ONLY)
 
@@ -203,7 +243,7 @@ factoryEligibilityBreakdown:
 		exit 1; \
 	fi
 	cast call $(FACTORY_ADDRESS) \
-		"eligibilityBreakdown(address)(bool,bool,bool,bool,bool,uint256)" \
+		"eligibilityBreakdown(address)(bool,bool,bool,bool,bool,uint256,bool,uint256)" \
 		$(BOUNTY_ADDRESS) \
 		$(RPC_ONLY)
 
@@ -247,8 +287,28 @@ setAutomationParams:
 	cast send $(FACTORY_ADDRESS) \
 		"setAutomationParams(uint256,uint256,uint256)" \
 		$(RETRY_INTERVAL) $(MAX_SCAN) $(MAX_PERFORM) \
-		$(RPC_ONLY) \
-		--private-key $(PRIVATE_KEY)
+		$(RPC_AND_KEY)
+
+# Usage: make setManualRetryInterval MANUAL_RETRY_INTERVAL=300
+setManualRetryInterval:
+	@if [ -z "$(FACTORY_ADDRESS)" ]; then \
+		echo "Error: FACTORY_ADDRESS not set"; exit 1; \
+	fi
+	@if [ -z "$(MANUAL_RETRY_INTERVAL)" ]; then \
+		echo "Error: MANUAL_RETRY_INTERVAL must be set (seconds)"; exit 1; \
+	fi
+	cast send $(FACTORY_ADDRESS) \
+		"setManualRetryInterval(uint256)" \
+		$(MANUAL_RETRY_INTERVAL) \
+		$(RPC_AND_KEY)
+
+factoryGetAutomationParams:
+	@if [ -z "$(FACTORY_ADDRESS)" ]; then \
+		echo "Error: FACTORY_ADDRESS not set"; exit 1; \
+	fi
+	cast call $(FACTORY_ADDRESS) \
+		"getAutomationParams()(uint256,uint256,uint256,uint256)" \
+		$(RPC_ONLY)
 
 set-source:
 	@echo "Setting Functions source..."
@@ -262,10 +322,6 @@ get-source:
 	cast call $(FACTORY_ADDRESS) \
 		"source()(string)" \
 		$(RPC_ONLY)
-
-OWNER ?=
-REPO ?=
-ISSUE ?=
 
 createBountyExisting:
 	cast send $(BOUNTY_ADDRESS) "createAndFundBounty(string,string,string)" "$(REPO_OWNER)" "$(REPO)" "$(ISSUE_NUMBER)" \
