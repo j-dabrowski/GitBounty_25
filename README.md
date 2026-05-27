@@ -486,6 +486,40 @@ Create and fund a bounty on an existing deployed child contract, sending BOUNTY_
 
 ---
 
+### Web3 Interface
+
+To update the Web UI's abi,
+
+```
+cast interface out/GitbountyFactory.sol/GitbountyFactory.json \
+    | awk '{buf = buf " " $0} /;[[:space:]]*$/{print buf; buf=""}' \
+    | awk '/[[:space:]](function|event|error)[[:space:]]/' \
+    | sed -E 's/^.*(function|event|error) /\1 /; s/ external//g; s/ memory//g; s/;[[:space:]]*$//; s/ [[:space:]]+/ /g; s/.*/  "&",/' \
+    | pbcopy && pbpaste | head -20
+```
+
+```
+cast interface out/Gitbounty.sol/Gitbounty.json \
+    | awk '{buf = buf " " $0} /;[[:space:]]*$/{print buf; buf=""}' \
+    | awk '/[[:space:]](function|event|error)[[:space:]]/' \
+    | sed -E 's/^.*(function|event|error) /\1 /; s/ external//g; s/ memory//g; s/;[[:space:]]*$//; s/ [[:space:]]+/ /g; s/.*/  "&",/' \
+    | pbcopy && pbpaste | head -20
+```
+
+Paste the results into constants.js under factoryAbi and bountyAbi.
+
+When BountySnapshot or GitbountyState changes in Gitbounty.sol:
+
+1. Check the updated struct/enum fields in src/Gitbounty.sol
+2. In constants.js, update the two hardcoded entries at the bottom of bountyAbi:
+   - Each struct field maps directly by name, with enums replaced by uint8
+   - Expand the tuple(...) in getBountySnapshot to match the new fields in order
+   - If GitbountyState gains/loses variants it's still uint8 — no change needed there
+3. Rebuild (forge build) and re-run the cast interface pipeline for \_bountyAbiRaw as normal — the hardcoded block is separate and unaffected
+   by the paste
+
+---
+
 ### Unsorted Notes
 
 Clone the official chainlink functions examples repo in another directory.
@@ -546,13 +580,11 @@ check if correct values returned by script
 - Check if all variables that can be set/reset by creating or completing a bounty can be checked via getter. So we are able to test if everything gets reset.
 - Check how bounty behaves with certain arguments set and some not etc. Such as repo set, but not repo_owner, or bounty value = 0
 - implement User funding of Automation and Functions
-
   - only attempt bounties that have prepaid credits and use those credits as your internal economic gate then you (as operator) fund the Automation upkeep + Functions sub globally (LINK) and you set your fees so that overall you don’t lose money
 
 - Add automation toggle helper to factory (to optionally turn off automation)
 
 - Live testnet test routines:
-
   - Toggle off automation
   - Deploy 1 bounty
   - manually perform upkeep

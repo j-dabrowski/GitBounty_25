@@ -21,45 +21,93 @@ export const factoryAddress = "0x5daD63916C4e6F2322F77621dbb61E015F467Aeb";
 
 export const factoryAbi = [
   "function bountyCount() view returns (uint256)",
-  "function getBounties(uint256 start, uint256 limit) view returns (address[] bountyAddresses, uint256[] nextAttemptAts)",
+  "function callbackGasLimit() view returns (uint32)",
+  "function checkUpkeep(bytes) view returns (bool upkeepNeeded, bytes performData)",
+  "function closeBounty(address bounty)",
   "function createBounty(string _repoOwner, string _repo, string _issueNumber) payable returns (address bountyAddr)",
-  "event BountyDeployed(address indexed bounty, address indexed bountyOwner)"
+  "function donID() view returns (bytes32)",
+  "function eligibilityBreakdown(address bounty) view returns ( bool registered, bool open, bool notInFlight, bool timeOk, bool childReady, uint256 nextAt, bool manualTimeOk, uint256 nextManualAt )",
+  "function encryptedSecretsUrls() view returns (bytes)",
+  "function functionsSubId() view returns (uint64)",
+  "function getAddressFromUsername(string username) view returns (address)",
+  "function getAutomationParams() view returns (uint256 retryInterval_, uint256 maxScan_, uint256 maxPerform_, uint256 manualRetryInterval_)",
+  "function getBounties(uint256 start, uint256 limit) view returns (address[] bountyAddresses, uint256[] nextAttemptAts)",
+  "function handleOracleFulfillment(bytes32 requestId, bytes response, bytes err)",
+  "function implementation() view returns (address)",
+  "function inFlight(address) view returns (bool)",
+  "function isEligible(address bounty) view returns (bool eligible)",
+  "function isEligibleManual(address bounty) view returns (bool eligible)",
+  "function lastRequestForBounty(address) view returns (bytes32)",
+  "function manualPerformUpkeep(address[] selected)",
+  "function manualRetryInterval() view returns (uint256)",
+  "function mapGithubUsernameToAddress(string username)",
+  "function openBounty(address bounty)",
+  "function owner() view returns (address)",
+  "function performUpkeep(bytes performData)",
+  "function registerBounty(address bounty)",
+  "function requestToBounty(bytes32) view returns (address)",
+  "function resetGithubUserMapping()",
+  "function setAutomationParams(uint256 _retryInterval, uint256 _maxScan, uint256 _maxPerform)",
+  "function setFunctionsConfig(bytes32 _donID, uint64 _subId, uint32 _callbackGasLimit)",
+  "function setManualRetryInterval(uint256 _manualRetryInterval)",
+  "function setSecrets(bytes newEncryptedSecretsUrls)",
+  "function setSource(string newSource)",
+  "function source() view returns (string)",
+  "function transferOwnership(address to)"
 ];
 
+const _bountyAbiRaw = [
+  "error Gitbounty__AlreadyInitialized()",
+  "error Gitbounty__CriteriaNotSet()",
+  "error Gitbounty__NoFundToWithdraw()",
+  "error Gitbounty__NotOpen()",
+  "error Gitbounty__NotOwner()",
+  "error Gitbounty__OnlyFactory()",
+  "error Gitbounty__SendNonZeroEth()",
+  "error Gitbounty__TransferFailed()",
+  "error Gitbounty__UnexpectedRequestID(bytes32 requestId)",
+  "event BountyClaimed(address indexed winner, uint256 value)",
+  "event BountyFundWithdrawn(address indexed sender, uint256 value)",
+  "event BountyFunded(address indexed sender, uint256 value)",
+  "event Response(bytes32 indexed requestId, bytes response, bytes err)",
+  "function abandonInFlight()",
+  "function createAndFundBounty(string _owner, string _repo, string _issue) payable",
+  "function deleteAndRefundBounty()",
+  "function factory() view returns (address)",
+  "function fundBounty() payable",
+  "function getArgs() view returns (string _repo_owner, string _repo, string _issueNumber)",
+  "function getBalance() view returns (uint256)",
+  "function getBountySnapshot() view returns (Gitbounty.BountySnapshot s)",
+  "function getContribution() view returns (uint256)",
+  "function getFunderCount() view returns (uint256)",
+  "function getGitbountyState() view returns (Gitbounty.GitbountyState)",
+  "function getIssueNumber() view returns (string)",
+  "function getLastResponse() view returns (bytes)",
+  "function getRepo() view returns (string)",
+  "function getRepoOwner() view returns (string)",
+  "function initialise(address _owner, string _repoOwner, string _repo, string _issueNumber) payable",
+  "function isBountyReady() view returns (bool)",
+  "function lastWinnerUser() view returns (string)",
+  "function last_BountyAmount() view returns (uint256)",
+  "function last_issueNumber() view returns (string)",
+  "function last_repo() view returns (string)",
+  "function last_repo_owner() view returns (string)",
+  "function markCalculating(bytes32 requestId)",
+  "function onFunctionsFulfilled(bytes32 requestId, address winner, bytes response, bytes err)",
+  "function owner() view returns (address)",
+  "function refundAllFunders()",
+  "function resetContract()",
+  "function s_lastError() view returns (bytes)",
+  "function s_lastRequestId() view returns (bytes32)",
+  "function s_lastResponse() view returns (bytes)",
+  "function setBountyCriteria(string _owner, string _repo, string _issue)",
+  "function withdrawBountyFund()",
+  "function withdrawPartialBountyFund(uint256 amount)"
+];
+
+// Struct/enum return types can't be auto-extracted via cast interface — hardcoded here
 export const bountyAbi = [
-  {
-    "inputs": [],
-    "name": "getBountySnapshot",
-    "outputs": [
-      {
-        "internalType": "struct BountySnapshot",
-        "name": "s",
-        "type": "tuple",
-        "components": [
-          { "internalType": "enum GitbountyState", "name": "state", "type": "uint8" },
-          { "internalType": "address", "name": "owner", "type": "address" },
-          { "internalType": "address", "name": "factory", "type": "address" },
-          { "internalType": "bool", "name": "initialized", "type": "bool" },
-
-          { "internalType": "string", "name": "repoOwner", "type": "string" },
-          { "internalType": "string", "name": "repo", "type": "string" },
-          { "internalType": "string", "name": "issueNumber", "type": "string" },
-
-          { "internalType": "uint256", "name": "totalFunding", "type": "uint256" },
-          { "internalType": "uint256", "name": "funderCount", "type": "uint256" },
-
-          { "internalType": "address", "name": "lastWinner", "type": "address" },
-          { "internalType": "string", "name": "lastWinnerUser", "type": "string" },
-
-          { "internalType": "string", "name": "last_repo_owner", "type": "string" },
-          { "internalType": "string", "name": "last_repo", "type": "string" },
-          { "internalType": "string", "name": "last_issueNumber", "type": "string" },
-
-          { "internalType": "uint256", "name": "lastBountyAmount", "type": "uint256" }
-        ]
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  ..._bountyAbiRaw.filter(e => !e.includes("getBountySnapshot") && !e.includes("getGitbountyState")),
+  "function getBountySnapshot() view returns (tuple(uint8 state, address owner, address factory, bool initialized, string repoOwner, string repo, string issueNumber, uint256 totalFunding, uint256 funderCount, address lastWinner, string lastWinnerUser, string last_repo_owner, string last_repo, string last_issueNumber, uint256 lastBountyAmount) s)",
+  "function getGitbountyState() view returns (uint8)",
 ];
