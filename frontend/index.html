@@ -80,10 +80,10 @@
 
                   <div class="form-grid">
                     <label for="issuesOwnerInput">Repo owner</label>
-                    <input id="issuesOwnerInput" type="text" placeholder="e.g. j-dabrowski" />
+                    <input id="issuesOwnerInput" type="text" placeholder="e.g. j-dabrowski" value="j-dabrowski" />
 
                     <label for="issuesRepoInput">Repo</label>
-                    <input id="issuesRepoInput" type="text" placeholder="e.g. GitBounty_25" />
+                    <input id="issuesRepoInput" type="text" placeholder="e.g. GitBounty_25" value="GitBounty_25" />
 
                     <label for="issuesStateSelect">State</label>
                     <select id="issuesStateSelect">
@@ -114,6 +114,7 @@
                       <div id="factoryBountyCount"></div>
                     </div>
 
+                    <button id="multiUpkeepBtn" class="button kde" style="display:none">Fetch (0)</button>
                     <button id="refreshButton" class="button kde">Refresh</button>
                   </div>
 

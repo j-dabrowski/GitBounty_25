@@ -485,6 +485,21 @@ input[type="text"] {
   min-width: unset;
 }
 
+/* ---------- Bounty selection ---------- */
+.bounty-row.bounty-row-compact {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bounty-row.selected {
+  outline: 2px solid var(--kde-highlight, #6ea0d0);
+  outline-offset: -2px;
+}
+
+#bountiesList.is-multi-select .bounty-upkeep-btn {
+  display: none;
+}
+
 /* ---------- State tint backgrounds ----------
    These are subtle overlays so your KDE bevel/borders still read.
    Apply one of these classes on the bounty row container:

@@ -29,6 +29,10 @@ let readFactory;
 // Issue selection state
 let selectedIssue = null; // { owner, repo, number, title, body }
 
+// Bounty multi-select state
+const selectedBounties = new Set();
+let maxUpkeepBatch = 3; // fetched from factory.getAutomationParams() on load
+
 /* =====================================================================
    2) DOM REFERENCES
 ===================================================================== */
@@ -58,6 +62,8 @@ const issuesStatus = document.getElementById("issuesStatus");
 const issuesListEl = document.getElementById("issuesList");
 const issuesFundingEthInput = document.getElementById("issuesFundingEthInput");
 
+const multiUpkeepBtn = document.getElementById("multiUpkeepBtn");
+
 // POPOVER
 const bountyPopoverEl = document.getElementById("bountyDetailsPopover");
 let popoverOutsideHandlerBound = false;
@@ -68,6 +74,7 @@ let popoverOutsideHandlerBound = false;
 
 connectButton.onclick = connect;
 refreshButton.onclick = loadBountiesView;
+multiUpkeepBtn.onclick = () => doManualUpkeep([...selectedBounties]);
 
 if (loadIssuesButton) loadIssuesButton.onclick = loadIssuesFromUI;
 if (createFromSelectedButton) createFromSelectedButton.onclick = createBountyFromSelected;
@@ -666,6 +673,35 @@ async function createBountyFromSelected() {
    12) BOUNTIES: LOAD + RENDER
 ===================================================================== */
 
+function updateMultiSelectUI() {
+  const count = selectedBounties.size;
+  bountiesListEl.classList.toggle("is-multi-select", count >= 2);
+  multiUpkeepBtn.style.display = count >= 2 ? "" : "none";
+  if (count >= 2) multiUpkeepBtn.textContent = `Fetch (${count})`;
+}
+
+async function doManualUpkeep(addresses) {
+  if (!writeFactory || !signer) {
+    factoryBountyCountEl.textContent = "Connect wallet to trigger upkeep.";
+    return;
+  }
+  multiUpkeepBtn.disabled = true;
+  factoryBountyCountEl.textContent = "Sending upkeep…";
+  try {
+    const tx = await writeFactory.manualPerformUpkeep(addresses);
+    factoryBountyCountEl.textContent = `Tx sent: ${tx.hash.slice(0, 10)}…`;
+    await tx.wait();
+    selectedBounties.clear();
+    updateMultiSelectUI();
+    await loadBountiesView({ write: true });
+  } catch (err) {
+    console.error(err);
+    factoryBountyCountEl.textContent = (err && (err.shortMessage || err.message)) || "Upkeep failed";
+  } finally {
+    multiUpkeepBtn.disabled = false;
+  }
+}
+
 async function loadBountiesView({ write = false } = {}) {
   const factory = write && writeFactory ? writeFactory : readFactory;
   const provider = write && browserProvider ? browserProvider : readProvider;
@@ -680,6 +716,13 @@ async function loadBountiesView({ write = false } = {}) {
   const cancelSpinTimer = startDelayedRefreshSpinner(nonce, 200);
 
   try {
+    try {
+      const params = await factory.getAutomationParams();
+      maxUpkeepBatch = Number(params.maxPerform_);
+    } catch (err) {
+      console.warn("Could not fetch maxPerform, using default:", err);
+    }
+
     let count;
     try {
       count = Number(await factory.bountyCount());
@@ -760,6 +803,8 @@ async function loadBountiesView({ write = false } = {}) {
       }
     }
 
+    selectedBounties.clear();
+    updateMultiSelectUI();
     bountiesListEl.replaceChildren(frag);
   } finally {
     cancelListTimer();
@@ -868,7 +913,10 @@ function renderBountyRow(base, snap, err) {
       ${escapeHtml(repoStr)}
     </div>
 
-    <button class="button kde bounty-compact-more" type="button" title="Details">⋯</button>
+    <div style="display:flex;gap:4px;align-items:flex-end;justify-content:flex-end;grid-column:2;grid-row:2;">
+      <button class="button kde bounty-upkeep-btn" type="button" title="Manual upkeep">Fetch</button>
+      <button class="button kde bounty-compact-more" type="button" title="Details">⋯</button>
+    </div>
   `;
 
   const btn = row.querySelector(".bounty-compact-more");
@@ -903,6 +951,25 @@ function renderBountyRow(base, snap, err) {
       rows: detailsRows,
       // link: getCachedIssueUrl?.(r_repoOwner, r_repo, r_issueNumber) || null,
     });
+  });
+
+  const upkeepBtn = row.querySelector(".bounty-upkeep-btn");
+  upkeepBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    doManualUpkeep([base.address]);
+  });
+
+  row.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    if (selectedBounties.has(base.address)) {
+      selectedBounties.delete(base.address);
+      row.classList.remove("selected");
+    } else {
+      if (selectedBounties.size >= maxUpkeepBatch) return;
+      selectedBounties.add(base.address);
+      row.classList.add("selected");
+    }
+    updateMultiSelectUI();
   });
 
   return row;
